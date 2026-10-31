@@ -1,0 +1,26 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 800 }, acceptDownloads: true });
+  const p = await ctx.newPage();
+  p.on('pageerror', (e) => console.log('PAGEERROR ' + e.message));
+  p.on('dialog', (d) => d.accept());
+  const url = 'file://' + process.cwd() + '/dist/gangstar.html';
+  await p.goto(url);
+  await p.waitForTimeout(9000); await p.evaluate(() => { __midp.key(-5, true); __midp.key(-5, false); }); await p.waitForTimeout(2000);
+  await p.screenshot({ path: 'test/pc.png' });
+  await p.click('#btnMenu');
+  await p.click('#expText');
+  const txt = await p.inputValue('#saveText');
+  console.log('export text length', txt.length, txt.slice(0, 20));
+  const dl = p.waitForEvent('download'); await p.click('#expFile'); const d = await dl; await d.saveAs('test/partida.json');
+  await p.screenshot({ path: 'test/menu.png' });
+  await p.click('#menuClose');
+  await p.evaluate(() => { localStorage.setItem('gangstar:rms:Gangstar - Crime City', '{"next":1,"recs":{}}'); });
+  await p.click('#btnMenu'); await p.click('#impText'); await p.fill('#saveText', txt);
+  await Promise.all([p.waitForNavigation(), p.click('#saveTextOk')]);
+  const after = await p.evaluate(() => localStorage.getItem('gangstar:rms:Gangstar - Crime City').length);
+  console.log('restored length', after);
+  await p.waitForTimeout(1000);
+  await b.close();
+})();

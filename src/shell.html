@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#111113">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Gangstar · Crime City</title>
+<link rel="icon" href="data:image/png;base64,/*ICON*/">
+<style>
+  :root {
+    --bg: #111113; --panel: #1b1b1f; --key: #2a2a30; --key-hi: #3a3a42; --text: #e9e7e2; --muted: #8d8b86;
+    --accent: #f5a524; --line: #2f2f36; --u: 60px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden;
+    user-select: none; -webkit-user-select: none; touch-action: none; }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  header { display: flex; align-items: center; gap: 6px; padding: 6px 10px; flex: none; height: 44px; }
+  header h1 { font-size: 12px; font-weight: 600; letter-spacing: .06em; margin: 0; flex: 1; color: var(--muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .icon-btn { background: transparent; border: 1px solid var(--line); color: var(--text); border-radius: 8px;
+    height: 32px; min-width: 36px; padding: 0 9px; font-size: 15px; cursor: pointer; }
+  .icon-btn:hover { background: var(--panel); }
+  body.compact header { position: absolute; top: env(safe-area-inset-top); right: env(safe-area-inset-right); z-index: 5; height: auto; padding: 6px; }
+  body.compact header h1 { display: none; }
+  body.compact #stage { padding-top: 8px; }
+  #stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 10px 10px; }
+  .side { display: flex; align-items: center; justify-content: center; flex: none; }
+  #center { display: flex; flex-direction: column; align-items: center; gap: 12px; flex: none; }
+  #screenWrap { flex: none; background: #000; border-radius: 6px; overflow: hidden; position: relative;
+    box-shadow: 0 0 0 5px #1d1d22, 0 0 0 6px #2c2c33, 0 10px 40px rgba(0,0,0,.6); }
+  #screen { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+  #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; background: rgba(0,0,0,.82); text-align: center; padding: 20px; cursor: pointer; }
+  #overlay.hidden { display: none; }
+  #overlay b { font-size: 18px; } #overlay span { color: var(--muted); font-size: 13px; }
+  .below { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; }
+
+  /* generic key */
+  .k { touch-action: none; cursor: pointer; border: none; padding: 0; color: var(--text); font-family: system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; }
+  .k.down { filter: brightness(1.6); transform: scale(.96); }
+
+  /* ---- game buttons mode ---- */
+  .joy { width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); position: relative; touch-action: none; flex: none; }
+  .joy .base { position: absolute; inset: 8%; border-radius: 50%; background: radial-gradient(circle, #24242a 0 55%, #1c1c21 56%);
+    border: 2px solid #34343c; }
+  .joy .base::before { content: ''; position: absolute; inset: 28%; border-radius: 50%; border: 1px dashed #3c3c45; }
+  .joy .knob { position: absolute; left: 50%; top: 50%; width: 38%; height: 38%; margin: -19% 0 0 -19%; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #5a5a64, #33333b); box-shadow: 0 4px 12px rgba(0,0,0,.5); pointer-events: none; }
+  .joy .arrow { position: absolute; color: #55555f; font-size: calc(var(--u) * .22); pointer-events: none; }
+  .gbtns { display: grid; grid-template-columns: repeat(3, calc(var(--u) * .9)); grid-template-rows: repeat(3, calc(var(--u) * .78)); gap: calc(var(--u) * .1); flex: none; }
+  .gb { border-radius: 14px; background: var(--key); font-weight: 700; font-size: calc(var(--u) * .2); box-shadow: 0 3px 0 #0a0a0c; }
+  .gb small { font-size: .72em; font-weight: 500; color: var(--muted); margin-top: 2px; }
+  .gb .ico { font-size: 1.5em; }
+  .gb.fire { grid-column: 2 / 4; grid-row: 2 / 4; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #c94434, #8c2219);
+    font-size: calc(var(--u) * .24); box-shadow: 0 4px 0 #4a120c; }
+  .gb.fire small { color: #f3c1b9; }
+  .gb.car { background: #2c3340; } .gb.pause { background: #33333a; }
+
+  /* ---- classic phone skin ---- */
+  body.skin-phone #center.portrait { background: linear-gradient(160deg, #3b3d44, #1f2025 45%, #2a2b31); border-radius: 34px;
+    padding: 18px 16px 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 14px 40px rgba(0,0,0,.6); }
+  body.skin-phone #center.portrait #screenWrap { box-shadow: 0 0 0 8px #0b0b0d, 0 0 0 9px #444650; border-radius: 4px; }
+  body.skin-phone #center.portrait .brand { display: block; }
+  .brand { display: none; font: 700 11px system-ui; letter-spacing: .3em; color: #8b8e98; margin: -4px 0 -6px; }
+  .pnav { display: grid; grid-template-columns: calc(var(--u) * 1.15) calc(var(--u) * 2.2) calc(var(--u) * 1.15); align-items: center; gap: calc(var(--u) * .12); }
+  .pnav .col { display: flex; flex-direction: column; gap: calc(var(--u) * .18); align-items: center; }
+  .pk { background: linear-gradient(#4a4c55, #2e3037); border-radius: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 2px 0 #0a0a0c; font-weight: 600; }
+  .soft { width: calc(var(--u) * 1.05); height: calc(var(--u) * .5); border-radius: 10px 10px 18px 18px; font-size: calc(var(--u) * .2); color: #c9ccd4; }
+  .call { width: calc(var(--u) * 1.05); height: calc(var(--u) * .5); border-radius: 18px; font-size: calc(var(--u) * .26); }
+  .call.green { color: #5bd16f; } .call.red { color: #ff6b5e; }
+  .dpad { width: calc(var(--u) * 2.2); height: calc(var(--u) * 2.2); border-radius: 50%; position: relative;
+    background: radial-gradient(circle, #50525c, #2c2e35 70%); box-shadow: inset 0 2px 0 rgba(255,255,255,.15), 0 3px 0 #0a0a0c; }
+  .dpad .k { position: absolute; color: #d8dae0; font-size: calc(var(--u) * .3); background: transparent; }
+  .dpad .up { left: 30%; top: 0; width: 40%; height: 32%; } .dpad .dn { left: 30%; bottom: 0; width: 40%; height: 32%; }
+  .dpad .lf { left: 0; top: 30%; width: 32%; height: 40%; } .dpad .rt { right: 0; top: 30%; width: 32%; height: 40%; }
+  .dpad .k.down { filter: none; transform: none; color: var(--accent); }
+  .dpad .ok { left: 32%; top: 32%; width: 36%; height: 36%; border-radius: 50%; background: linear-gradient(#686a75, #3d3f47);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.25); font-size: calc(var(--u) * .22); color: #fff; }
+  .pnum { display: grid; grid-template-columns: repeat(3, calc(var(--u) * 1.15)); grid-auto-rows: calc(var(--u) * .62); gap: calc(var(--u) * .1) calc(var(--u) * .14); }
+  .pnum .k { border-radius: 14px; font-size: calc(var(--u) * .3); }
+  .pnum .k small { font-size: .45em; color: #9ca0aa; letter-spacing: .08em; font-weight: 500; }
+
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #26262c; border: 1px solid var(--line);
+    padding: 10px 16px; border-radius: 10px; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90vw; z-index: 20; }
+  #toast.show { opacity: 1; }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(440px, 94vw); max-height: 90vh; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  .dlg { padding: 18px; display: flex; flex-direction: column; gap: 10px; overflow: auto; max-height: 88vh; touch-action: pan-y; }
+  .dlg h2 { margin: 0 0 4px; font-size: 16px; }
+  .dlg h3 { margin: 10px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .dlg p { margin: 0; color: var(--muted); font-size: 13px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { flex: 1 1 170px; background: var(--key); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+    font: 500 14px system-ui, sans-serif; cursor: pointer; text-align: left; }
+  .btn:hover { background: var(--key-hi); }
+  .btn.primary { background: var(--accent); color: #111; border-color: var(--accent); text-align: center; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { flex: 1; background: var(--key); color: var(--text); border: none; padding: 9px 6px; font: 500 13px system-ui; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--accent); color: #111; }
+  table { border-collapse: collapse; font-size: 13px; width: 100%; }
+  td { padding: 4px 6px; border-bottom: 1px solid var(--line); } td:first-child { color: var(--muted); white-space: nowrap; }
+  kbd { background: var(--key); border-radius: 4px; padding: 1px 6px; font: 12px ui-monospace, monospace; }
+  textarea { width: 100%; height: 110px; background: #0e0e10; color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: 11px ui-monospace, monospace; padding: 8px; user-select: text; -webkit-user-select: text; }
+  label.chk { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+  .slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .slot { min-width: 0; background: var(--key); border: 1px solid var(--line); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+  .slot .th { aspect-ratio: 3 / 4; background: #0c0c0e; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; overflow: hidden; }
+  .slot .th img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+  .slot b { font-size: 12px; } .slot span { font-size: 11px; color: var(--muted); min-height: 2.4em; }
+  .slot button { background: #34343c; color: var(--text); border: none; border-radius: 8px; padding: 7px 4px; font: 500 12px system-ui; cursor: pointer; }
+  .slot button.save { background: var(--accent); color: #111; }
+  .slot button:disabled { opacity: .35; cursor: default; }
+  .slot .more { display: flex; gap: 4px; } .slot .more button { flex: 1; min-width: 0; padding: 5px 2px; font-size: 11px; background: transparent; border: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cheatrow { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  #setup { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  #setup .card { max-width: 420px; display: flex; flex-direction: column; gap: 14px; text-align: center; }
+  #setup .btn { flex: none; text-align: center; padding: 14px; font-size: 16px; }
+  #setup h2 { margin: 0; font-size: 20px; } #setup p { margin: 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Gangstar · Crime City</h1>
+    <button class="icon-btn" id="btnSound" title="Sonido (M)">🔊</button>
+    <button class="icon-btn" id="btnFull" title="Pantalla completa">⛶</button>
+    <button class="icon-btn" id="btnStates" title="Guardar / cargar (F5 / F9)">💾</button>
+    <button class="icon-btn" id="btnMenu" title="Menú">☰</button>
+  </header>
+  <div id="stage">
+    <div class="side" id="sideL"></div>
+    <div id="center">
+      <div class="brand">MOBILE</div>
+      <div id="screenWrap">
+        <canvas id="screen" width="240" height="320"></canvas>
+        <div id="overlay"><b>Tocá o hacé clic para empezar</b><span>(el navegador necesita un toque para activar el sonido)</span></div>
+      </div>
+      <div class="below" id="below"></div>
+    </div>
+    <div class="side" id="sideR"></div>
+  </div>
+</div>
+
+<!-- control sets (moved into place by layout()) -->
+<div id="parking" hidden>
+  <div class="joy" id="joy"><div class="base"></div>
+    <span class="arrow" style="left:47%;top:11%">▲</span><span class="arrow" style="left:47%;bottom:11%">▼</span>
+    <span class="arrow" style="left:12%;top:44%">◀</span><span class="arrow" style="right:12%;top:44%">▶</span>
+    <div class="knob" id="knob"></div></div>
+  <div class="gbtns" id="gbtns">
+    <button class="k gb pause" data-k="-6"><span class="ico">⏸</span><small>Pausa · Elegir</small></button>
+    <button class="k gb" data-k="42"><span class="ico">◀</span><small>Arma *</small></button>
+    <button class="k gb" data-k="35"><span class="ico">▶</span><small>Arma # / Freno</small></button>
+    <button class="k gb car" data-k="48"><span class="ico">🚗</span><small>Auto / Entrar</small></button>
+    <button class="k gb fire" data-k="53">DISPARAR<small>OK · 5</small></button>
+    <button class="k gb" data-k="-7" style="grid-column:1;grid-row:3"><span class="ico">⏭</span><small>Saltar · Atrás</small></button>
+  </div>
+  <div class="pnav" id="pnav">
+    <div class="col"><button class="k pk soft" data-k="-6">━━</button><button class="k pk call green" data-k="-6">✆</button></div>
+    <div class="dpad">
+      <button class="k up" data-k="-1">▲</button><button class="k dn" data-k="-2">▼</button>
+      <button class="k lf" data-k="-3">◀</button><button class="k rt" data-k="-4">▶</button>
+      <button class="k ok" data-k="-5">OK</button>
+    </div>
+    <div class="col"><button class="k pk soft" data-k="-7">━━</button><button class="k pk call red" data-k="-7">✆</button></div>
+  </div>
+  <div class="pnum" id="pnum">
+    <button class="k pk" data-k="49">1<small>&nbsp;</small></button><button class="k pk" data-k="50">2<small>ABC</small></button><button class="k pk" data-k="51">3<small>DEF</small></button>
+    <button class="k pk" data-k="52">4<small>GHI</small></button><button class="k pk" data-k="53">5<small>JKL</small></button><button class="k pk" data-k="54">6<small>MNO</small></button>
+    <button class="k pk" data-k="55">7<small>PQRS</small></button><button class="k pk" data-k="56">8<small>TUV</small></button><button class="k pk" data-k="57">9<small>WXYZ</small></button>
+    <button class="k pk" data-k="42">*<small>&nbsp;</small></button><button class="k pk" data-k="48">0<small>␣</small></button><button class="k pk" data-k="35">#<small>&nbsp;</small></button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<dialog id="menu">
+  <div class="dlg">
+    <h2>Menú</h2>
+    <h3>Controles táctiles</h3>
+    <div class="seg" id="segCtl"><button data-v="game">Botones del juego</button><button data-v="phone">Celular clásico</button><button data-v="none">Ocultos</button></div>
+    <h3>Idioma del juego</h3>
+    <div class="seg" id="segLang"><button data-v="es">Español</button><button data-v="en">English</button></div>
+    <p>Cambiar el idioma reinicia el juego (la partida guardada se mantiene).</p>
+    <h3>Imagen</h3>
+    <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave a 60 fps</label>
+    <label class="chk"><input type="checkbox" id="optVib"> Vibración</label>
+    <h3>Trucos</h3>
+    <div class="cheatrow">
+      <label class="chk"><input type="checkbox" id="chHealth"> Salud infinita</label>
+      <label class="chk"><input type="checkbox" id="chAmmo"> Munición infinita</label>
+      <label class="chk"><input type="checkbox" id="chPolice"> Sin policía</label>
+      <button class="btn" id="chMoney" style="flex:none;text-align:center">💵 +$10.000</button>
+    </div>
+    <h3>Partida</h3>
+    <p>La partida se guarda en el navegador de este dispositivo. Para seguir en otro (PC ↔ teléfono), exportala acá y cargala allá.</p>
+    <div class="row">
+      <button class="btn" id="expFile">💾 Guardar partida en archivo</button>
+      <button class="btn" id="impFile">📂 Cargar partida desde archivo</button>
+      <button class="btn" id="expText">📋 Copiar partida como texto</button>
+      <button class="btn" id="impText">📥 Pegar partida desde texto</button>
+    </div>
+    <textarea id="saveText" hidden placeholder="Pegá acá el texto de la partida"></textarea>
+    <div class="row" id="saveTextRow" hidden><button class="btn primary" id="saveTextOk">Cargar esta partida</button></div>
+    <h3>Teclado (PC)</h3>
+    <table>
+      <tr><td><kbd>W A S D</kbd> / <kbd>↑ ↓ ← →</kbd></td><td>Moverse (dos teclas juntas = diagonal)</td></tr>
+      <tr><td><kbd>Espacio</kbd> / <kbd>J</kbd></td><td>Disparar · OK (tecla 5)</td></tr>
+      <tr><td><kbd>F</kbd> / <kbd>K</kbd></td><td>Entrar / salir del auto (tecla 0)</td></tr>
+      <tr><td><kbd>Q</kbd> · <kbd>R</kbd></td><td>Arma anterior (*) · siguiente (#)</td></tr>
+      <tr><td><kbd>Shift</kbd></td><td>Freno de mano (#)</td></tr>
+      <tr><td><kbd>Enter</kbd> / <kbd>Backspace</kbd></td><td>Soft derecha: saltar escena · atrás</td></tr>
+      <tr><td><kbd>Esc</kbd> / <kbd>P</kbd> / <kbd>Tab</kbd></td><td>Soft izquierda: pausa · elegir</td></tr>
+      <tr><td><kbd>0</kbd>–<kbd>9</kbd> (fila o numpad)</td><td>Teclas del celular</td></tr>
+      <tr><td><kbd>M</kbd></td><td>Silenciar</td></tr>
+      <tr><td><kbd>F5</kbd> · <kbd>F9</kbd></td><td>Guardado rápido · carga rápida</td></tr>
+    </table>
+    <h3>Control de consola</h3>
+    <p id="padInfo">Conectá un control (USB o Bluetooth) y apretá cualquier botón.</p>
+    <table>
+      <tr><td>Stick izq. / cruceta</td><td>Moverse (8 direcciones)</td></tr>
+      <tr><td><kbd>A</kbd> / <kbd>RT</kbd></td><td>Disparar · OK</td></tr>
+      <tr><td><kbd>B</kbd></td><td>Saltar escena · atrás</td></tr>
+      <tr><td><kbd>X</kbd></td><td>Entrar / salir del auto</td></tr>
+      <tr><td><kbd>LB</kbd> · <kbd>RB</kbd> / <kbd>Y</kbd></td><td>Arma anterior · siguiente</td></tr>
+      <tr><td><kbd>LT</kbd></td><td>Freno de mano</td></tr>
+      <tr><td><kbd>Start</kbd></td><td>Pausa</td></tr>
+      <tr><td><kbd>Select</kbd></td><td>Este menú · con RB/LB guarda/carga</td></tr>
+    </table>
+    <div id="dataRow" hidden><h3>Datos del juego</h3><div class="row"><button class="btn" id="dataChange">📦 Cambiar archivo de datos</button></div></div>
+    <div class="row" style="margin-top:8px"><button class="btn primary" id="menuClose">Volver al juego</button></div>
+  </div>
+</dialog>
+<input type="file" id="fileIn" accept=".json,application/json,text/plain" hidden>
+<input type="file" id="stateIn" accept=".gss,application/gzip,application/octet-stream" hidden>
+<input type="file" id="dataIn" accept=".zip,.jar,application/zip,application/java-archive" hidden>
+<dialog id="states">
+  <div class="dlg">
+    <h2>Guardar en cualquier momento</h2>
+    <p>Guarda exactamente donde estás, en medio de una misión. <kbd>F5</kbd> guarda y <kbd>F9</kbd> carga la ranura rápida (la 1). En el control: <b>Select + RB</b> guarda y <b>Select + LB</b> carga.</p>
+    <div class="slots" id="slotList"></div>
+    <p>"Exportar" descarga un archivo <b>.gss</b>: cargalo en otro dispositivo con "Importar" para seguir ahí, aunque sea en medio de una misión.</p>
+    <div class="row"><button class="btn primary" id="statesClose">Volver al juego</button></div>
+  </div>
+</dialog>
+<div id="setup" hidden>
+  <div class="card">
+    <h2>Gangstar · Crime City</h2>
+    <p>Primera vez en este dispositivo. Elegí el archivo <b>gangstar-datos.zip</b> (o el <b>.jar</b> original del juego). Queda guardado solo en este dispositivo; no se sube a ningún lado.</p>
+    <button class="btn primary" id="setupPick">Elegir archivo…</button>
+    <p id="setupMsg"></p>
+  </div>
+</div>
+
+<script>
+/*INFLATE*/
+</script>
+<script>
+/*JVM*/
+</script>
+<script>
+/*MIDP*/
+</script>
+<script>
+/*AUDIO*/
+</script>
+<script>
+/*GANGSTAR*/
+</script>
+<script>
+/*SAVESTATE*/
+</script>
+<script>
+const JAR_B64 = "/*JAR*/";
+const LANG_PACKS = /*LANGS*/;
+const PREFIX = 'gangstar:';
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const toast = (msg) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600); };
+  const store = { get(k, d) { try { const v = localStorage.getItem(PREFIX + 'ui:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+                  set(k, v) { try { localStorage.setItem(PREFIX + 'ui:' + k, JSON.stringify(v)); } catch (e) {} } };
+
+  const touch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+  const settings = {
+    ctl: store.get('ctl', touch ? 'game' : 'none'),
+    lang: store.get('lang', 'es'),
+    smooth: store.get('smooth', true),
+    vib: store.get('vib', true),
+    sound: store.get('sound', true),
+  };
+
+  // ---------- key output ----------
+  function press(code, down) { SoundEngine.unlock(); MIDP.key(code, down); }
+
+  // Direction combiner: the game wants a single key per direction (1..9), so combos become diagonals.
+  const DIRS = { '-1,-1': 49, '0,-1': 50, '1,-1': 51, '-1,0': 52, '1,0': 54, '-1,1': 55, '0,1': 56, '1,1': 57 };
+  const kbDir = { u: 0, d: 0, l: 0, r: 0 };
+  let joyDigit = null, padDigit = null, curDigit = null;
+  function updateDir() {
+    const dx = kbDir.r - kbDir.l, dy = kbDir.d - kbDir.u;
+    const digit = joyDigit !== null ? joyDigit : padDigit !== null ? padDigit : (DIRS[dx + ',' + dy] || null);
+    if (digit === curDigit) return;
+    if (curDigit !== null) press(curDigit, false);
+    curDigit = digit;
+    if (digit !== null) press(digit, true);
+  }
+
+  // ---------- touch buttons ----------
+  document.querySelectorAll('.k[data-k]').forEach((b) => {
+    const code = +b.dataset.k;
+    const down = (e) => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) {} if (b.classList.contains('down')) return;
+      b.classList.add('down'); hideOverlay(); if (settings.vib && navigator.vibrate) try { navigator.vibrate(8); } catch (x) {} press(code, true); };
+    const up = (e) => { if (!b.classList.contains('down')) return; b.classList.remove('down'); press(code, false); };
+    b.addEventListener('pointerdown', down);
+    b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
+    b.addEventListener('contextmenu', (e) => e.preventDefault());
+  });
+
+  // ---------- joystick (8 directions) ----------
+  (function joystick() {
+    const el = $('joy'), knob = $('knob');
+    let id = null, cx = 0, cy = 0, lastDigit = null;
+    const SECT = [54, 51, 50, 49, 52, 55, 56, 57]; // E, NE, N, NW, W, SW, S, SE
+    function move(e) {
+      const r = el.getBoundingClientRect(), max = r.width * 0.3;
+      let dx = e.clientX - cx, dy = e.clientY - cy;
+      const dist = Math.hypot(dx, dy);
+      if (dist > max) { dx *= max / dist; dy *= max / dist; }
+      knob.style.transform = `translate(${dx}px, ${dy}px)`;
+      let digit = null;
+      if (dist > r.width * 0.09) {
+        const ang = Math.atan2(-dy, dx);
+        digit = SECT[((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8];
+      }
+      if (digit !== lastDigit) { lastDigit = digit; if (digit !== null && settings.vib && navigator.vibrate) try { navigator.vibrate(6); } catch (x) {} }
+      joyDigit = digit; updateDir();
+    }
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); hideOverlay(); if (id !== null) return;
+      id = e.pointerId; try { el.setPointerCapture(id); } catch (x) {}
+      const r = el.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2;
+      move(e);
+    });
+    el.addEventListener('pointermove', (e) => { if (e.pointerId === id) move(e); });
+    const end = (e) => { if (e.pointerId !== id) return; id = null; knob.style.transform = ''; joyDigit = null; lastDigit = null; updateDir(); };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
+  })();
+
+  // ---------- keyboard ----------
+  const keyCodes = {
+    Space: 53, KeyJ: 53, Enter: -7, NumpadEnter: -7, Backspace: -7, Escape: -6, Tab: -6, KeyP: -6,
+    KeyF: 48, KeyK: 48, KeyQ: 42, KeyR: 35, ShiftLeft: 35, ShiftRight: 35, NumpadMultiply: 42, NumpadDivide: 35,
+  };
+  for (let i = 0; i <= 9; i++) { keyCodes['Digit' + i] = 48 + i; keyCodes['Numpad' + i] = 48 + i; }
+  const dirKeys = { KeyW: 'u', ArrowUp: 'u', KeyS: 'd', ArrowDown: 'd', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r' };
+  const held = new Map();
+  addEventListener('keydown', (e) => {
+    if ($('menu').open || $('states').open) return;
+    if (e.code === 'KeyM') { toggleSound(); return; }
+    if (e.code === 'F5') { e.preventDefault(); if (!e.repeat) quickSave(); return; }
+    if (e.code === 'F9') { e.preventDefault(); if (!e.repeat) quickLoad(); return; }
+    if (dirKeys[e.code]) { e.preventDefault(); hideOverlay(); kbDir[dirKeys[e.code]] = 1; updateDir(); return; }
+    let c = keyCodes[e.code];
+    if (c === undefined && e.key === '*') c = 42;
+    if (c === undefined && e.key === '#') c = 35;
+    if (c === undefined) return;
+    e.preventDefault();
+    if (e.repeat || held.has(e.code)) return;
+    held.set(e.code, c); hideOverlay(); press(c, true);
+  });
+  addEventListener('keyup', (e) => {
+    if (dirKeys[e.code]) { kbDir[dirKeys[e.code]] = 0; updateDir(); return; }
+    const c = held.get(e.code); if (c === undefined) return; held.delete(e.code); e.preventDefault(); press(c, false);
+  });
+  addEventListener('blur', () => { for (const c of held.values()) press(c, false); held.clear(); kbDir.u = kbDir.d = kbDir.l = kbDir.r = 0; updateDir(); });
+
+  // ---------- layout ----------
+  function layout() {
+    const stage = $('stage'), center = $('center'), below = $('below'), sideL = $('sideL'), sideR = $('sideR'), park = $('parking');
+    const mode = settings.ctl;
+    document.body.classList.toggle('skin-phone', mode === 'phone');
+    const compact = innerWidth > innerHeight * 1.1 && innerHeight < 560;
+    document.body.classList.toggle('compact', compact);
+    const W = stage.clientWidth - 20, H = stage.clientHeight - 10;
+    const landscape = W > H * 1.1;
+    center.classList.toggle('portrait', !landscape);
+    for (const id of ['joy', 'gbtns', 'pnav', 'pnum']) park.appendChild($(id));
+    let scale, u = 60;
+    const a = mode === 'game' ? [$('joy'), $('gbtns')] : mode === 'phone' ? [$('pnav'), $('pnum')] : [];
+    if (mode === 'none') scale = Math.min(W / 240, H / 320);
+    else if (landscape) {
+      // each side panel is about 3 key units wide
+      u = Math.max(34, Math.min(72, H / (mode === 'game' ? 3.3 : 4.1), W / (mode === 'game' ? 12 : 14)));
+      const sideW = u * (mode === 'game' ? 3.0 : 4.75);
+      scale = Math.min((W - sideW * 2 - 24) / 240, H / 320);
+      sideL.appendChild(a[0]); sideR.appendChild(a[1]);
+      sideL.style.width = sideR.style.width = sideW + 'px';
+    } else {
+      sideL.style.width = sideR.style.width = '0';
+      const pad = mode === 'phone' ? 34 : 0;
+      u = Math.max(40, Math.min(70, (W - pad) / (mode === 'game' ? 5.8 : 4.6)));
+      const ctlH = mode === 'game' ? u * 2.65 : u * 2.3 + u * 2.9 + 12;
+      scale = Math.min((W - pad) / 240, (H - ctlH - 12 - (mode === 'phone' ? 46 : 0)) / 320);
+      if (mode === 'game') { below.style.flexDirection = 'row'; below.appendChild(a[0]); below.appendChild(a[1]); }
+      else { below.style.flexDirection = 'column'; below.appendChild(a[0]); below.appendChild(a[1]); }
+    }
+    if (mode === 'none' || landscape) below.style.display = 'none'; else below.style.display = 'flex';
+    if (scale >= 1) scale = Math.floor(scale * 8) / 8;
+    scale = Math.max(0.5, scale);
+    document.documentElement.style.setProperty('--u', u + 'px');
+    const sw = $('screenWrap'); sw.style.width = Math.round(240 * scale) + 'px'; sw.style.height = Math.round(320 * scale) + 'px';
+    if (!landscape && mode === 'game') below.style.width = Math.max(240 * scale, u * 5.6) + 'px';
+    else below.style.width = '';
+  }
+  addEventListener('resize', layout);
+  addEventListener('orientationchange', () => setTimeout(layout, 200));
+
+  // ---------- overlay / sound / fullscreen ----------
+  function hideOverlay() { $('overlay').classList.add('hidden'); SoundEngine.unlock(); }
+  $('overlay').addEventListener('pointerdown', (e) => { e.preventDefault(); hideOverlay(); });
+  document.addEventListener('pointerdown', () => SoundEngine.unlock(), { capture: true });
+  function applySound() { SoundEngine.setEnabled(settings.sound); $('btnSound').textContent = settings.sound ? '🔊' : '🔇'; }
+  function toggleSound() { settings.sound = !settings.sound; store.set('sound', settings.sound); applySound(); toast(settings.sound ? 'Sonido activado' : 'Sonido silenciado'); }
+  $('btnSound').onclick = toggleSound;
+  $('btnFull').onclick = () => {
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => toast('Pantalla completa no disponible'));
+    else toast('Pantalla completa no disponible');
+  };
+
+  // ---------- menu ----------
+  const menu = $('menu');
+  function seg(id, key, onChange) {
+    const s = $(id);
+    const paint = () => s.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === settings[key]));
+    s.querySelectorAll('button').forEach((b) => b.onclick = () => { if (settings[key] === b.dataset.v) return; settings[key] = b.dataset.v; store.set(key, settings[key]); paint(); onChange(); });
+    paint();
+  }
+  seg('segCtl', 'ctl', layout);
+  seg('segLang', 'lang', () => { sessionStorage.setItem(PREFIX + 'msg', settings.lang === 'es' ? 'Idioma: español' : 'Language: English'); location.reload(); });
+  $('optSmooth').checked = settings.smooth;
+  $('optSmooth').onchange = (e) => { settings.smooth = e.target.checked; store.set('smooth', settings.smooth); Gangstar.opts.smooth = settings.smooth; };
+  $('optVib').checked = settings.vib;
+  $('optVib').onchange = (e) => { settings.vib = e.target.checked; MIDP.vibration = settings.vib; store.set('vib', settings.vib); };
+  const releaseAll = () => { for (const c of held.values()) press(c, false); held.clear(); kbDir.u = kbDir.d = kbDir.l = kbDir.r = 0; joyDigit = null; updateDir(); };
+  const openMenu = () => { if (menu.open) return; releaseAll(); VM.freeze(); menu.showModal(); };
+  $('btnMenu').onclick = openMenu;
+  $('menuClose').onclick = () => menu.close();
+  menu.addEventListener('close', () => { $('saveText').hidden = true; $('saveTextRow').hidden = true; if (!$('states').open) VM.unfreeze(); });
+
+  // ---------- saves ----------
+  function collectSave() {
+    const data = {};
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith(PREFIX + 'rms:')) data[k.substring(PREFIX.length)] = localStorage.getItem(k); }
+    return { juego: 'Gangstar - Crime City', version: 1, fecha: new Date().toISOString(), datos: data };
+  }
+  function applySave(obj) {
+    if (!obj || typeof obj.datos !== 'object') throw new Error('formato');
+    const keys = Object.keys(obj.datos).filter((k) => k.startsWith('rms:'));
+    if (!keys.length) throw new Error('vacío');
+    for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k.startsWith(PREFIX + 'rms:')) localStorage.removeItem(k); }
+    for (const k of keys) localStorage.setItem(PREFIX + k, obj.datos[k]);
+    sessionStorage.setItem(PREFIX + 'msg', 'Partida cargada ✔');
+    location.reload();
+  }
+  const hasSave = () => Object.keys(collectSave().datos).length > 0;
+  $('expFile').onclick = () => {
+    if (!hasSave()) { toast('Todavía no hay partida guardada'); return; }
+    const blob = new Blob([JSON.stringify(collectSave(), null, 1)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'gangstar-partida-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast('Archivo de partida descargado');
+  };
+  $('impFile').onclick = () => $('fileIn').click();
+  $('fileIn').onchange = async (e) => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try { const obj = JSON.parse(await f.text()); if (confirm('¿Reemplazar la partida de este dispositivo por la del archivo?')) applySave(obj); }
+    catch (err) { toast('Ese archivo no es una partida válida'); }
+  };
+  $('expText').onclick = async () => {
+    if (!hasSave()) { toast('Todavía no hay partida guardada'); return; }
+    const txt = 'GANGSTAR1:' + btoa(unescape(encodeURIComponent(JSON.stringify(collectSave()))));
+    const ta = $('saveText'); ta.hidden = false; ta.value = txt; $('saveTextRow').hidden = true;
+    try { await navigator.clipboard.writeText(txt); toast('Partida copiada al portapapeles'); }
+    catch (err) { ta.select(); toast('Copiá el texto de abajo'); }
+  };
+  $('impText').onclick = () => { const ta = $('saveText'); ta.hidden = false; ta.value = ''; $('saveTextRow').hidden = false; ta.focus(); };
+  $('saveTextOk').onclick = () => {
+    try {
+      const raw = $('saveText').value.trim().replace(/^GANGSTAR1:/, '');
+      const obj = JSON.parse(decodeURIComponent(escape(atob(raw))));
+      if (confirm('¿Reemplazar la partida de este dispositivo por la pegada?')) applySave(obj);
+    } catch (err) { toast('Ese texto no es una partida válida'); }
+  };
+  const pending = sessionStorage.getItem(PREFIX + 'msg');
+  if (pending) { sessionStorage.removeItem(PREFIX + 'msg'); setTimeout(() => toast(pending), 400); }
+
+  // ---------- pause when hidden ----------
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { MIDP.visibility(false); SoundEngine.suspend(); }
+    else { SoundEngine.resume(); MIDP.visibility(true); }
+  });
+
+  // ---------- cheats ----------
+  const cheatIds = { chHealth: 'health', chAmmo: 'ammo', chPolice: 'noPolice' };
+  for (const id in cheatIds) {
+    const k = cheatIds[id]; Gangstar.cheats[k] = store.get('cheat_' + k, false); $(id).checked = Gangstar.cheats[k];
+    $(id).onchange = (e) => { Gangstar.cheats[k] = e.target.checked; store.set('cheat_' + k, e.target.checked); };
+  }
+  $('chMoney').onclick = () => toast(Gangstar.addMoney(10000) ? '+$10.000 💵' : 'Primero empezá una partida');
+
+  // ---------- save states ----------
+  const statesDlg = $('states');
+  const fmtDate = (t) => new Date(t).toLocaleString('es', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  let pendingImport = 1;
+  async function renderSlots() {
+    let slots = {};
+    try { slots = await SaveState.listSlots(); } catch (e) {}
+    const can = SaveState.canSave();
+    $('slotList').innerHTML = '';
+    for (const n of [1, 2, 3]) {
+      const r = slots[n], el = document.createElement('div'); el.className = 'slot';
+      el.innerHTML = `<div class="th">${r ? `<img src="${r.thumb}">` : 'vacía'}</div><b>Ranura ${n}${n === 1 ? ' · rápida' : ''}</b>
+        <span>${r ? fmtDate(r.date) : (can || '&nbsp;')}</span>
+        <button class="save" ${can ? 'disabled title="' + can + '"' : ''}>Guardar acá</button>
+        <button class="load" ${r ? '' : 'disabled'}>Cargar</button>
+        <div class="more"><button class="exp" title="Exportar a archivo" ${r ? '' : 'disabled'}>⬇ Exp.</button><button class="imp" title="Importar desde archivo">⬆ Imp.</button><button class="del" title="Borrar" ${r ? '' : 'disabled'}>✕</button></div>`;
+      el.querySelector('.save').onclick = async () => {
+        if (r && !confirm('¿Sobrescribir la ranura ' + n + '?')) return;
+        try { await SaveState.saveSlot(n, settings.lang); toast('Guardado en ranura ' + n + ' ✔'); renderSlots(); } catch (e) { toast(e.message); }
+      };
+      el.querySelector('.load').onclick = async () => {
+        try { await SaveState.loadSlot(n); statesDlg.close(); toast('Ranura ' + n + ' cargada ✔'); } catch (e) { toast('No se pudo cargar: ' + e.message); }
+      };
+      el.querySelector('.exp').onclick = async () => {
+        const blob = await SaveState.exportSlot(n);
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = 'gangstar-ranura' + n + '-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.gss';
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      };
+      el.querySelector('.imp').onclick = () => { pendingImport = n; $('stateIn').click(); };
+      el.querySelector('.del').onclick = async () => { if (confirm('¿Borrar la ranura ' + n + '?')) { await SaveState.deleteSlot(n); renderSlots(); } };
+      $('slotList').appendChild(el);
+    }
+  }
+  $('stateIn').onchange = async (e) => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try { await SaveState.importToSlot(pendingImport, f, settings.lang); statesDlg.close(); toast('Guardado importado y cargado ✔'); }
+    catch (err) { toast(err.message || 'Archivo inválido'); }
+  };
+  async function openStates() { if (statesDlg.open) return; if (menu.open) menu.close(); releaseAll(); $('slotList').innerHTML = ''; statesDlg.showModal(); await VM.freeze(); renderSlots(); }
+  $('btnStates').onclick = openStates;
+  $('statesClose').onclick = () => statesDlg.close();
+  statesDlg.addEventListener('close', () => { if (!menu.open) VM.unfreeze(); });
+  async function quickSave() { try { await SaveState.saveSlot(1, settings.lang); toast('Guardado rápido ✔'); } catch (e) { toast(e.message); } }
+  async function quickLoad() { try { await SaveState.loadSlot(1); toast('Carga rápida ✔'); } catch (e) { toast(e.message === 'Ranura vacía' ? 'No hay guardado rápido todavía' : e.message); } }
+
+  // ---------- gamepad ----------
+  (function gamepad() {
+    const BTN = { 0: 53, 7: 53, 1: -7, 2: 48, 3: 35, 5: 35, 4: 42, 6: 35, 9: -6 };
+    const SECT = [54, 51, 50, 49, 52, 55, 56, 57];
+    let held = new Set(), prevBtn = [], polling = false;
+    function poll() {
+      const pads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
+      const gp = pads[0];
+      if (!gp) { polling = false; release(); return; }
+      requestAnimationFrame(poll);
+      const b = (i) => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5));
+      const pressedNow = (i) => b(i) && !prevBtn[i];
+      // Select combos
+      if (b(8) && pressedNow(5)) quickSave();
+      else if (b(8) && pressedNow(4)) quickLoad();
+      else if (pressedNow(8)) setTimeout(() => { if (!b(4) && !b(5)) { if (menu.open) menu.close(); else { if (statesDlg.open) statesDlg.close(); openMenu(); } } }, 180);
+      const dialogOpen = menu.open || statesDlg.open;
+      // direction: dpad first, then left stick
+      let dx = (b(15) ? 1 : 0) - (b(14) ? 1 : 0), dy = (b(13) ? 1 : 0) - (b(12) ? 1 : 0), digit = null;
+      if (dx || dy) digit = DIRS[dx + ',' + dy];
+      else {
+        const x = gp.axes[0] || 0, y = gp.axes[1] || 0;
+        if (Math.hypot(x, y) > 0.45) digit = SECT[((Math.round(Math.atan2(-y, x) / (Math.PI / 4)) % 8) + 8) % 8];
+      }
+      if (dialogOpen) digit = null;
+      if (digit !== padDigit) { padDigit = digit; updateDir(); }
+      const want = new Set();
+      if (!dialogOpen && !b(8)) for (const i in BTN) if (b(+i)) want.add(BTN[i]);
+      for (const c of want) if (!held.has(c)) { hideOverlay(); press(c, true); }
+      for (const c of held) if (!want.has(c)) press(c, false);
+      held = want;
+      prevBtn = gp.buttons.map((x) => x.pressed || x.value > 0.5);
+    }
+    function release() { for (const c of held) press(c, false); held = new Set(); if (padDigit !== null) { padDigit = null; updateDir(); } }
+    function start() { if (!polling) { polling = true; requestAnimationFrame(poll); } }
+    addEventListener('gamepadconnected', (e) => { $('padInfo').textContent = '🎮 Conectado: ' + ((e.gamepad && e.gamepad.id) || 'control'); toast('🎮 Control conectado'); SoundEngine.unlock(); start(); });
+    addEventListener('gamepaddisconnected', () => { $('padInfo').textContent = 'Control desconectado.'; toast('Control desconectado'); });
+    start();
+  })();
+
+  // ---------- boot ----------
+  layout();
+  applySound();
+  MIDP.vibration = settings.vib;
+  Gangstar.opts.smooth = settings.smooth;
+  const unb64 = (s) => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+  MIDP.state.onExit = () => { $('overlay').classList.remove('hidden'); $('overlay').innerHTML = '<b>Juego cerrado</b><span>Tocá para volver a abrir</span>'; $('overlay').onpointerdown = () => location.reload(); };
+
+  // game data: embedded (single-file build) or a data package stored on this device (installable app build)
+  const dataDB = () => new Promise((res, rej) => { const r = indexedDB.open('gangstar-data', 1); r.onupgradeneeded = () => r.result.createObjectStore('files'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  const dataGet = async () => { const d = await dataDB(); return new Promise((res) => { const q = d.transaction('files').objectStore('files').get('pkg'); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); };
+  const dataPut = async (u8) => { const d = await dataDB(); return new Promise((res, rej) => { const tx = d.transaction('files', 'readwrite'); tx.objectStore('files').put(u8, 'pkg'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); };
+  function filesFromPackage(u8) {
+    const outer = unzip(u8);
+    if (outer['META-INF/MANIFEST.MF']) return { files: outer, langs: {} };     // a plain .jar
+    if (!outer['gangstar.jar']) throw new Error('El archivo no contiene el juego');
+    const langs = {};
+    for (const k in outer) { const m = /^lang\/o_(\w+)\.bin$/.exec(k); if (m) langs[m[1]] = outer[k]; }
+    return { files: unzip(outer['gangstar.jar']), langs };
+  }
+  function start(files, langs) {
+    if (langs[settings.lang]) files['o'] = langs[settings.lang];
+    MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: Gangstar.beforeStart });
+  }
+  function pickData() {
+    return new Promise((resolve) => {
+      $('setup').hidden = false;
+      $('setupPick').onclick = () => $('dataIn').click();
+      $('dataIn').onchange = async (e) => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        try {
+          const u8 = new Uint8Array(await f.arrayBuffer());
+          const pkg = filesFromPackage(u8);
+          if (!pkg.files['META-INF/MANIFEST.MF']) throw new Error('No parece un juego Java');
+          await dataPut(u8);
+          $('setup').hidden = true; resolve(pkg);
+        } catch (err) { $('setupMsg').textContent = '⚠ ' + (err.message || 'Archivo inválido'); }
+      };
+    });
+  }
+  (async () => {
+    if (JAR_B64.length > 100) {
+      const langs = {}; for (const k in LANG_PACKS) langs[k] = unb64(LANG_PACKS[k]);
+      start(unzip(unb64(JAR_B64)), langs);
+    } else {
+      $('dataRow').hidden = false;
+      $('dataChange').onclick = async () => { menu.close(); const pkg = await pickData(); location.reload(); };
+      let pkg = null;
+      try { const u8 = await dataGet(); if (u8) pkg = filesFromPackage(u8); } catch (e) {}
+      if (!pkg) pkg = await pickData();
+      start(pkg.files, pkg.langs);
+    }
+  })();
+  window.__vm = VM; window.__midp = MIDP; window.__ss = SaveState; window.__settings = settings;
+})();
+</script>
+</body>
+</html>

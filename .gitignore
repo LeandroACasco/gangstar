@@ -1,0 +1,13 @@
+# Game files (Gameloft) and anything derived from them never go to the repo
+game/
+lang/
+dist/
+*.jar
+*.gss
+gangstar-datos.zip
+# test output (screenshots of the game etc.)
+test/*.png
+test/*.json
+test/*.gss
+node_modules/
+__pycache__/
