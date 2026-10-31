@@ -248,7 +248,7 @@
     <h2>Guardar en cualquier momento</h2>
     <p>Guarda exactamente donde estás, en medio de una misión. <kbd>F5</kbd> guarda y <kbd>F9</kbd> carga la ranura rápida (la 1). En el control: <b>Select + RB</b> guarda y <b>Select + LB</b> carga.</p>
     <div class="slots" id="slotList"></div>
-    <p>"Exportar" descarga un archivo <b>.gss</b>: cargalo en otro dispositivo con "Importar" para seguir ahí, aunque sea en medio de una misión.</p>
+    <p><b>⬇</b> exporta la ranura a un archivo <b>.gss</b>; con <b>⬆</b> lo importás en otro dispositivo y seguís ahí, aunque sea en medio de una misión.</p>
     <div class="row"><button class="btn primary" id="statesClose">Volver al juego</button></div>
   </div>
 </dialog>
@@ -2948,7 +2948,7 @@ const PREFIX = 'gangstar:';
         <span>${r ? fmtDate(r.date) : (can || '&nbsp;')}</span>
         <button class="save" ${can ? 'disabled title="' + can + '"' : ''}>Guardar acá</button>
         <button class="load" ${r ? '' : 'disabled'}>Cargar</button>
-        <div class="more"><button class="exp" title="Exportar a archivo" ${r ? '' : 'disabled'}>⬇ Exp.</button><button class="imp" title="Importar desde archivo">⬆ Imp.</button><button class="del" title="Borrar" ${r ? '' : 'disabled'}>✕</button></div>`;
+        <div class="more"><button class="exp" title="Exportar a archivo" ${r ? '' : 'disabled'}>⬇</button><button class="imp" title="Importar desde archivo">⬆</button><button class="del" title="Borrar" ${r ? '' : 'disabled'}>✕</button></div>`;
       el.querySelector('.save').onclick = async () => {
         if (r && !confirm('¿Sobrescribir la ranura ' + n + '?')) return;
         try { await SaveState.saveSlot(n, settings.lang); toast('Guardado en ranura ' + n + ' ✔'); renderSlots(); } catch (e) { toast(e.message); }
