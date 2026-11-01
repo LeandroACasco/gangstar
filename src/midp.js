@@ -2,7 +2,7 @@
 'use strict';
 
 const MIDP = (() => {
-  const SW = 240, SH = 320;
+  let SW = 240, SH = 320;
   const jstr = (o) => (o === null || o === undefined ? 'null' : o instanceof JStr ? o.s : String(o));
   const N = (name, spec) => VM.defineNative(name, spec);
   const NPE = () => VM.throwNew('java/lang/NullPointerException');
@@ -139,7 +139,7 @@ const MIDP = (() => {
     statics: { out: 1, err: 1 },
     clinit: (c) => { c.sv.out = VM.newObject(VM.loadClass('java/io/PrintStream')); c.sv.err = c.sv.out; },
     m: {
-      '$currentTimeMillis()J': () => BigInt(Date.now()),
+      '$currentTimeMillis()J': () => BigInt(state.clock ? state.clock() : Date.now()),
       '$gc()V': () => {},
       '$getProperty(Ljava/lang/String;)Ljava/lang/String;': (t, k) => {
         const p = { 'microedition.platform': 'j2me-web', 'microedition.encoding': 'ISO-8859-1', 'microedition.configuration': 'CLDC-1.1', 'microedition.profiles': 'MIDP-2.0' }[jstr(k)];
@@ -181,7 +181,7 @@ const MIDP = (() => {
         if (th) { o.jt = th; VM.addThread(th); }
       },
       'run()V': (t, o) => { if (o.target) { const th = VM.spawn('run', o.target, 'run()V', []); if (th) VM.addThread(th); } },
-      '$yield()V': () => YIELD,
+      '$yield()V': (t) => (state.yieldHook ? state.yieldHook(t) : YIELD),
       '$sleep(J)V': (t, ms) => { t.sleepFor = Math.max(1, Number(ms)); return YIELD; },
       '$currentThread()Ljava/lang/Thread;': () => state.threadObj || (state.threadObj = VM.newObject(VM.loadClass('java/lang/Thread'))),
       'setPriority(I)V': () => {}, 'isAlive()Z': (t, o) => !!(o.jt && !o.jt.done), 'join()V': () => YIELD,
@@ -365,10 +365,14 @@ const MIDP = (() => {
       'paint(Ljavax/microedition/lcdui/Graphics;)V': (t, o, g) => { g.g.ctx.drawImage(o.back.canvas, 0, 0); },
     },
   });
+  function blit(img) {
+    if (!state.screenCtx) return;
+    if (state.blit) state.blit(img, state.screenCtx); else state.screenCtx.drawImage(img.canvas, 0, 0);
+  }
   function flush(img) {
     state.backImage = img;
     if (state.flushHook && state.flushHook(img) === false) { state.frames = (state.frames || 0) + 1; return; }
-    if (state.screenCtx) state.screenCtx.drawImage(img.canvas, 0, 0);
+    blit(img);
     state.frames = (state.frames || 0) + 1;
     if (state.onFlush) state.onFlush();
   }
@@ -496,9 +500,15 @@ const MIDP = (() => {
     }
     return g.cw > 0 && g.ch > 0;
   }
+  // optional observer of where drawing lands (absolute coordinates, before clipping)
+  function touch(g, x, y, w, h) {
+    if (!state.onDraw) return;
+    const x1 = Math.max(x, g.cx), y1 = Math.max(y, g.cy), x2 = Math.min(x + w, g.cx + g.cw), y2 = Math.min(y + h, g.cy + g.ch);
+    if (x2 > x1 && y2 > y1) state.onDraw(g.img, x1, y1, x2, y2);
+  }
   function fill(g) { if (g.ctx.__fill !== g.css) { g.ctx.fillStyle = g.css; g.ctx.__fill = g.css; } }
   function setColor(g, c) { c &= 0xffffff; g.color = c; g.css = '#' + c.toString(16).padStart(6, '0'); }
-  function frect(g, x, y, w, h) { if (w <= 0 || h <= 0) return; g.ctx.fillRect(x + g.tx, y + g.ty, w, h); }
+  function frect(g, x, y, w, h) { if (w <= 0 || h <= 0) return; touch(g, x + g.tx, y + g.ty, w, h); g.ctx.fillRect(x + g.tx, y + g.ty, w, h); }
   function line(g, x1, y1, x2, y2) {
     if (x1 === x2) { const a = Math.min(y1, y2); frect(g, x1, a, 1, Math.abs(y2 - y1) + 1); return; }
     if (y1 === y2) { const a = Math.min(x1, x2); frect(g, a, y1, Math.abs(x2 - x1) + 1, 1); return; }
@@ -532,6 +542,7 @@ const MIDP = (() => {
     if (!applyClip(g)) return;
     const dw = tr >= 4 ? h : w, dh = tr >= 4 ? w : h;
     [x, y] = anchorImg(x + g.tx, y + g.ty, dw, dh, anchor);
+    touch(g, x, y, dw, dh);
     const ctx = g.ctx;
     if (tr === 0) { ctx.drawImage(img.canvas, sx, sy, w, h, x, y, w, h); return; }
     const m = TR[tr] || TR[0];
@@ -550,11 +561,13 @@ const MIDP = (() => {
     let yy = y + g.ty;
     if (a & 32) yy -= f.height; else if (a & 64) yy -= f.baseline;
     ctx.textBaseline = 'top';
+    touch(g, g.cx, yy, g.cw, f.height);
     fill(g);
     ctx.fillText(s, x + g.tx, yy + 1);
   }
   function arcPath(g, x, y, w, h, sa, aa, pie) {
     const ctx = g.ctx;
+    touch(g, x + g.tx, y + g.ty, w + 1, h + 1);
     const cx = x + g.tx + w / 2, cy = y + g.ty + h / 2;
     ctx.beginPath();
     if (Math.abs(aa) >= 360) { ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2); return; }
@@ -609,6 +622,7 @@ const MIDP = (() => {
       }),
       'fillTriangle(IIIIII)V': G((g, x1, y1, x2, y2, x3, y3) => {
         if (!applyClip(g)) return; fill(g);
+        touch(g, Math.min(x1, x2, x3) + g.tx, Math.min(y1, y2, y3) + g.ty, Math.max(x1, x2, x3) - Math.min(x1, x2, x3) + 1, Math.max(y1, y2, y3) - Math.min(y1, y2, y3) + 1);
         const c = g.ctx; c.beginPath(); c.moveTo(x1 + g.tx, y1 + g.ty); c.lineTo(x2 + g.tx, y2 + g.ty); c.lineTo(x3 + g.tx, y3 + g.ty); c.closePath(); c.fill();
       }),
       'drawString(Ljava/lang/String;III)V': G((g, s, x, y, a) => drawString(g, s.s, x, y, a)),
@@ -619,6 +633,7 @@ const MIDP = (() => {
         if (img === null) NPE();
         if (!applyClip(g)) return;
         const [dx, dy] = anchorImg(x + g.tx, y + g.ty, img.w, img.h, a);
+        touch(g, dx, dy, img.w, img.h);
         g.ctx.drawImage(img.canvas, dx, dy);
       }),
       'drawRegion(Ljavax/microedition/lcdui/Image;IIIIIIII)V': G((g, img, sx, sy, w, h, tr, x, y, a) => {
@@ -642,12 +657,13 @@ const MIDP = (() => {
           rgbCache.set(key, c);
           if (rgbCache.size > 4000) rgbCache.delete(rgbCache.keys().next().value);
         }
+        touch(g, x + g.tx, y + g.ty, w, h);
         g.ctx.drawImage(c, x + g.tx, y + g.ty);
       }),
       'copyArea(IIIIIII)V': G((g, sx, sy, w, h, dx, dy, a) => {
         const [x, y] = anchorImg(dx + g.tx, dy + g.ty, w, h, a);
         const tmp = makeCanvas(w, h); tmp.getContext('2d').drawImage(g.img.canvas, sx + g.tx, sy + g.ty, w, h, 0, 0, w, h);
-        if (applyClip(g)) g.ctx.drawImage(tmp, x, y);
+        if (applyClip(g)) { touch(g, x, y, w, h); g.ctx.drawImage(tmp, x, y); }
       }),
     },
   });
@@ -788,8 +804,9 @@ const MIDP = (() => {
 
   // ---------------- public API ----------------
   return {
-    state, SW, SH,
-    present(img) { if (state.screenCtx) state.screenCtx.drawImage((img || state.backImage).canvas, 0, 0); },
+    state, get SW() { return SW; }, get SH() { return SH; },
+    setScreen(w, h) { SW = w; SH = h; },
+    present(img) { blit(img || state.backImage); },
     newGraphics,
     vibration: true,
     onSave: null,

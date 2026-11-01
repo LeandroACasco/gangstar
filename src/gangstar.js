@@ -22,7 +22,33 @@ const Gangstar = (() => {
   let D = null, userClasses = [];
   let prev = null, cur = null, tickAt = 0, tickLen = 100, lastAlpha = -1;
   let active = false, inInterp = false, drawSnap = null;
-  const opts = { smooth: true };
+  const opts = { smooth: true, speed: 1 };
+
+  // ----- game clock and tick pacing -----
+  // The game's main loop (d.run) runs one tick, then spins on Thread.yield() until 100 ms of
+  // System.currentTimeMillis() have passed. Waking up every few ms overshoots (the game ran at ~9 ticks/s),
+  // so the yield inside that wait sleeps exactly until the tick is due. The clock the game sees can run
+  // faster than real time ("game speed"): everything, including mission timers, scales together.
+  let clockReal = performance.now(), clockGame = Date.now();
+  const gameNow = () => clockGame + (performance.now() - clockReal) * opts.speed;
+  function setSpeed(v) {
+    const g = gameNow();
+    clockReal = performance.now(); clockGame = g;
+    opts.speed = Math.min(2, Math.max(0.5, v || 1));
+  }
+  function yieldHook(t) {
+    const f = t.frames[t.frames.length - 1];
+    if (!f || f.m.name !== 'run' || f.m.cls !== D) return YIELD;
+    if (f.ipc === 64) return undefined;          // unconditional yield at the top of the loop: the tick is next
+    if (f.ipc === 101) {                          // inside the wait for the next tick
+      const due = Number(D.sv.at) + 100;
+      const left = (due - gameNow()) / opts.speed;  // real ms
+      if (left > 3) { t.sleepFor = left - 2; return YIELD; } // timers wake late: aim a bit early...
+      while (gameNow() < due) { /* ...and wait out the last couple of ms here */ }
+      return undefined;
+    }
+    return YIELD;
+  }
   const cheats = { health: false, ammo: false, noPolice: false };
 
   // Game variables (found by reverse engineering d.java):
@@ -54,6 +80,8 @@ const Gangstar = (() => {
     VM.loadClass('java/util/Random').onNew = (o) => randoms.push(o);
     D = VM.loadClass('d');
     MIDP.state.flushHook = onTickFlush;
+    MIDP.state.clock = () => Math.floor(gameNow());
+    MIDP.state.yieldHook = yieldHook;
     VM.hookMethod('d', 'b(Ljavax/microedition/lcdui/Graphics;)V', (orig, g) => {
       if (!inInterp && opts.smooth) drawSnap = saveState();
       return orig(g);
@@ -115,8 +143,11 @@ const Gangstar = (() => {
 
   const lerp = (a, b, t, max) => (Math.abs(b - a) > max ? b : Math.round(a + (b - a) * t));
 
+  // the live state only changes when Java code runs (VM.epoch), so it is captured once per change, not per frame
+  let liveSnap = null, liveEpoch = -1;
   function renderInterpolated(alpha) {
-    const saved = saveState();
+    if (!liveSnap || liveEpoch !== VM.epoch) liveSnap = saveState();
+    const saved = liveSnap;
     try {
       restoreState(cur.state);
       for (const [o, c] of cur.actors) {
@@ -137,6 +168,7 @@ const Gangstar = (() => {
     } finally {
       inInterp = false;
       restoreState(saved);
+      liveEpoch = VM.epoch;
     }
     MIDP.present();
   }
@@ -166,8 +198,8 @@ const Gangstar = (() => {
       if (n === 'a' || n === 'b' || n === 'c' || n === 'd') { tracked.push(o); if (n === 'b') actors.push(o); }
       else if (n === 'java/util/Random') randoms.push(o);
     }
-    prev = cur = null; drawSnap = null; active = false; tickAt = 0;
+    prev = cur = null; drawSnap = null; active = false; tickAt = 0; liveSnap = null;
   }
 
-  return { beforeStart, adopt, opts, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
+  return { beforeStart, adopt, opts, setSpeed, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
 })();

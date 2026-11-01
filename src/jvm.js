@@ -103,6 +103,7 @@ class JClass {
 }
 
 const VM = {
+  K: [],
   classes: new Map(), natives: {}, files: {}, threads: [], events: [], interned: new Map(), manifest: {},
   StringClass: null, current: null, log: (...a) => console.log('[java]', ...a), errors: [],
 
@@ -357,6 +358,12 @@ const VM = {
 
   // ---------- interpreter ----------
   run(t, budget) {
+    this.epoch = (this.epoch || 0) + 1; // anything that runs Java code may change game state
+    const prev = this.curThread;
+    this.curThread = t;
+    try { return this.run0(t, budget); } finally { this.curThread = prev; }
+  },
+  run0(t, budget) {
     const frames = t.frames;
     outer: for (;;) {
       if (frames.length === 0) { t.done = true; return 'done'; }
@@ -377,6 +384,7 @@ const VM = {
             case 0x0e: case 0x0f: st.push(new D(op - 0x0e)); break;
             case 0x10: st.push((code[pc++] << 24) >> 24); break;
             case 0x11: st.push((((code[pc] << 8) | code[pc + 1]) << 16) >> 16); pc += 2; break;
+            case 0xcb: st.push(this.K[code[pc++]]); break; // port-specific: push a patched constant (see Gangstar)
             case 0x12: case 0x13: case 0x14: {
               let idx; if (op === 0x12) idx = code[pc++]; else { idx = (code[pc] << 8) | code[pc + 1]; pc += 2; }
               const e = cp[idx];
@@ -638,6 +646,7 @@ const VM = {
         if (!(e instanceof JavaThrow) && !(e instanceof TypeError)) { f.pc = opc; f.ipc = opc; t.trace = this.stackTrace(t); throw e; }
         f.ipc = opc;
         const ex = this.toThrowable(e);
+        if (this.traceThrows) console.error('THROW ' + ex.cls.name + ' ' + (ex.msg || '') + ' at ' + this.stackTrace(t).split('\n').slice(0, 6).join(' <') + (e instanceof TypeError ? ' JS:' + e.message : ''));
         if (!this.handle(t, ex)) {
           t.trace = this.stackTrace(t); t.frames.length = 0; t.done = true;
           this.uncaught(t, new JavaThrow(ex));
@@ -716,8 +725,8 @@ const VM = {
           let s;
           try { s = this.run(t, 40000); } catch (e) { this.uncaught(t, e); t.done = true; continue; }
           t.status = s;
-          if (s === 'yield') t.sleepUntil = performance.now() + (t.yieldDelay || 1);
-          else if (t.sleepFor) { t.sleepUntil = performance.now() + t.sleepFor; t.sleepFor = 0; }
+          if (t.sleepFor) { t.sleepUntil = performance.now() + t.sleepFor; t.sleepFor = 0; }
+          else if (s === 'yield') t.sleepUntil = performance.now() + (t.yieldDelay || 1);
           if (this.events.length && !this.paused) this.runEvents();
         }
         this.threads = this.threads.filter((t) => !t.done);

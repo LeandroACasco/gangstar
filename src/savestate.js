@@ -79,12 +79,19 @@ const SaveState = (() => {
     const thread = { cls: f.m.cls.name, key: f.m.key, pc: f.pc, ipc: f.ipc, stack: f.stack.map(enc), locals: f.locals.map(enc) };
     const st = MIDP.state;
     const roots = { current: enc(st.current), display: enc(st.display), midlet: enc(st.midlet) };
-    return { format: FORMAT, game: 'gangstar', entries, statics, thread, roots };
+    return { format: FORMAT, game: 'gangstar', w: MIDP.SW, entries, statics, thread, roots };
   }
 
   // ---------------- restore ----------------
+  // a save state holds the game's memory, which is laid out for one screen width (see Wide)
+  const screenName = (w) => ({ 240: 'Original', 384: 'Ancha', 432: 'Panorámica', 576: 'Cine 16:9' }[w] || w + ' px');
+  function checkWidth(data) {
+    const w = data.w || 240;
+    if (w !== MIDP.SW) throw new Error('se guardó con la pantalla ' + screenName(w) + '; elegila en Menú → Pantalla para cargarla');
+  }
   async function restore(data) {
     if (!data || data.format !== FORMAT || data.game !== 'gangstar') throw new Error('Formato de guardado desconocido');
+    checkWidth(data);
     // 1. decode all images first (async), so the swap below happens in one go
     const bitmaps = new Map();
     await Promise.all(data.entries.map(async (e, id) => {
@@ -214,9 +221,9 @@ const SaveState = (() => {
     });
   }
   function thumbnail() {
-    const c = document.createElement('canvas'); c.width = 120; c.height = 160;
+    const c = document.createElement('canvas'); c.width = Math.round(MIDP.SW / 2); c.height = 160;
     const x = c.getContext('2d'); x.imageSmoothingEnabled = true;
-    x.drawImage(document.getElementById('screen'), 0, 0, 120, 160);
+    x.drawImage(document.getElementById('screen'), 0, 0, c.width, 160);
     return c.toDataURL('image/jpeg', 0.7);
   }
   async function saveSlot(slot, lang) {

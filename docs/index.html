@@ -191,8 +191,13 @@
     <h3>Idioma del juego</h3>
     <div class="seg" id="segLang"><button data-v="es">Español</button><button data-v="en">English</button></div>
     <p>Cambiar el idioma reinicia el juego (la partida guardada se mantiene).</p>
+    <h3>Pantalla</h3>
+    <div class="seg" id="segScreen"><button data-v="240">Original</button><button data-v="384">Ancha</button><button data-v="432">Panorámica</button><button data-v="576">Cine 16:9</button></div>
+    <p>Las pantallas más anchas muestran más ciudad a los costados. Cambiarla reinicia el juego; los guardados rápidos (ranuras) solo cargan en la pantalla en que se hicieron, la partida normal sí se mantiene.</p>
+    <h3>Velocidad del juego</h3>
+    <div class="seg" id="segSpeed"><button data-v="1">Normal</button><button data-v="1.25">Rápida ×1,25</button><button data-v="1.5">Muy rápida ×1,5</button></div>
     <h3>Imagen</h3>
-    <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave a 60 fps</label>
+    <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave (cuadros intermedios a la frecuencia de tu pantalla)</label>
     <label class="chk"><input type="checkbox" id="optVib"> Vibración</label>
     <h3>Trucos</h3>
     <div class="cheatrow">
@@ -572,6 +577,7 @@ class JClass {
 }
 
 const VM = {
+  K: [],
   classes: new Map(), natives: {}, files: {}, threads: [], events: [], interned: new Map(), manifest: {},
   StringClass: null, current: null, log: (...a) => console.log('[java]', ...a), errors: [],
 
@@ -826,6 +832,12 @@ const VM = {
 
   // ---------- interpreter ----------
   run(t, budget) {
+    this.epoch = (this.epoch || 0) + 1; // anything that runs Java code may change game state
+    const prev = this.curThread;
+    this.curThread = t;
+    try { return this.run0(t, budget); } finally { this.curThread = prev; }
+  },
+  run0(t, budget) {
     const frames = t.frames;
     outer: for (;;) {
       if (frames.length === 0) { t.done = true; return 'done'; }
@@ -846,6 +858,7 @@ const VM = {
             case 0x0e: case 0x0f: st.push(new D(op - 0x0e)); break;
             case 0x10: st.push((code[pc++] << 24) >> 24); break;
             case 0x11: st.push((((code[pc] << 8) | code[pc + 1]) << 16) >> 16); pc += 2; break;
+            case 0xcb: st.push(this.K[code[pc++]]); break; // port-specific: push a patched constant (see Gangstar)
             case 0x12: case 0x13: case 0x14: {
               let idx; if (op === 0x12) idx = code[pc++]; else { idx = (code[pc] << 8) | code[pc + 1]; pc += 2; }
               const e = cp[idx];
@@ -1107,6 +1120,7 @@ const VM = {
         if (!(e instanceof JavaThrow) && !(e instanceof TypeError)) { f.pc = opc; f.ipc = opc; t.trace = this.stackTrace(t); throw e; }
         f.ipc = opc;
         const ex = this.toThrowable(e);
+        if (this.traceThrows) console.error('THROW ' + ex.cls.name + ' ' + (ex.msg || '') + ' at ' + this.stackTrace(t).split('\n').slice(0, 6).join(' <') + (e instanceof TypeError ? ' JS:' + e.message : ''));
         if (!this.handle(t, ex)) {
           t.trace = this.stackTrace(t); t.frames.length = 0; t.done = true;
           this.uncaught(t, new JavaThrow(ex));
@@ -1185,8 +1199,8 @@ const VM = {
           let s;
           try { s = this.run(t, 40000); } catch (e) { this.uncaught(t, e); t.done = true; continue; }
           t.status = s;
-          if (s === 'yield') t.sleepUntil = performance.now() + (t.yieldDelay || 1);
-          else if (t.sleepFor) { t.sleepUntil = performance.now() + t.sleepFor; t.sleepFor = 0; }
+          if (t.sleepFor) { t.sleepUntil = performance.now() + t.sleepFor; t.sleepFor = 0; }
+          else if (s === 'yield') t.sleepUntil = performance.now() + (t.yieldDelay || 1);
           if (this.events.length && !this.paused) this.runEvents();
         }
         this.threads = this.threads.filter((t) => !t.done);
@@ -1207,7 +1221,7 @@ const VM = {
 'use strict';
 
 const MIDP = (() => {
-  const SW = 240, SH = 320;
+  let SW = 240, SH = 320;
   const jstr = (o) => (o === null || o === undefined ? 'null' : o instanceof JStr ? o.s : String(o));
   const N = (name, spec) => VM.defineNative(name, spec);
   const NPE = () => VM.throwNew('java/lang/NullPointerException');
@@ -1344,7 +1358,7 @@ const MIDP = (() => {
     statics: { out: 1, err: 1 },
     clinit: (c) => { c.sv.out = VM.newObject(VM.loadClass('java/io/PrintStream')); c.sv.err = c.sv.out; },
     m: {
-      '$currentTimeMillis()J': () => BigInt(Date.now()),
+      '$currentTimeMillis()J': () => BigInt(state.clock ? state.clock() : Date.now()),
       '$gc()V': () => {},
       '$getProperty(Ljava/lang/String;)Ljava/lang/String;': (t, k) => {
         const p = { 'microedition.platform': 'j2me-web', 'microedition.encoding': 'ISO-8859-1', 'microedition.configuration': 'CLDC-1.1', 'microedition.profiles': 'MIDP-2.0' }[jstr(k)];
@@ -1386,7 +1400,7 @@ const MIDP = (() => {
         if (th) { o.jt = th; VM.addThread(th); }
       },
       'run()V': (t, o) => { if (o.target) { const th = VM.spawn('run', o.target, 'run()V', []); if (th) VM.addThread(th); } },
-      '$yield()V': () => YIELD,
+      '$yield()V': (t) => (state.yieldHook ? state.yieldHook(t) : YIELD),
       '$sleep(J)V': (t, ms) => { t.sleepFor = Math.max(1, Number(ms)); return YIELD; },
       '$currentThread()Ljava/lang/Thread;': () => state.threadObj || (state.threadObj = VM.newObject(VM.loadClass('java/lang/Thread'))),
       'setPriority(I)V': () => {}, 'isAlive()Z': (t, o) => !!(o.jt && !o.jt.done), 'join()V': () => YIELD,
@@ -1570,10 +1584,14 @@ const MIDP = (() => {
       'paint(Ljavax/microedition/lcdui/Graphics;)V': (t, o, g) => { g.g.ctx.drawImage(o.back.canvas, 0, 0); },
     },
   });
+  function blit(img) {
+    if (!state.screenCtx) return;
+    if (state.blit) state.blit(img, state.screenCtx); else state.screenCtx.drawImage(img.canvas, 0, 0);
+  }
   function flush(img) {
     state.backImage = img;
     if (state.flushHook && state.flushHook(img) === false) { state.frames = (state.frames || 0) + 1; return; }
-    if (state.screenCtx) state.screenCtx.drawImage(img.canvas, 0, 0);
+    blit(img);
     state.frames = (state.frames || 0) + 1;
     if (state.onFlush) state.onFlush();
   }
@@ -1701,9 +1719,15 @@ const MIDP = (() => {
     }
     return g.cw > 0 && g.ch > 0;
   }
+  // optional observer of where drawing lands (absolute coordinates, before clipping)
+  function touch(g, x, y, w, h) {
+    if (!state.onDraw) return;
+    const x1 = Math.max(x, g.cx), y1 = Math.max(y, g.cy), x2 = Math.min(x + w, g.cx + g.cw), y2 = Math.min(y + h, g.cy + g.ch);
+    if (x2 > x1 && y2 > y1) state.onDraw(g.img, x1, y1, x2, y2);
+  }
   function fill(g) { if (g.ctx.__fill !== g.css) { g.ctx.fillStyle = g.css; g.ctx.__fill = g.css; } }
   function setColor(g, c) { c &= 0xffffff; g.color = c; g.css = '#' + c.toString(16).padStart(6, '0'); }
-  function frect(g, x, y, w, h) { if (w <= 0 || h <= 0) return; g.ctx.fillRect(x + g.tx, y + g.ty, w, h); }
+  function frect(g, x, y, w, h) { if (w <= 0 || h <= 0) return; touch(g, x + g.tx, y + g.ty, w, h); g.ctx.fillRect(x + g.tx, y + g.ty, w, h); }
   function line(g, x1, y1, x2, y2) {
     if (x1 === x2) { const a = Math.min(y1, y2); frect(g, x1, a, 1, Math.abs(y2 - y1) + 1); return; }
     if (y1 === y2) { const a = Math.min(x1, x2); frect(g, a, y1, Math.abs(x2 - x1) + 1, 1); return; }
@@ -1737,6 +1761,7 @@ const MIDP = (() => {
     if (!applyClip(g)) return;
     const dw = tr >= 4 ? h : w, dh = tr >= 4 ? w : h;
     [x, y] = anchorImg(x + g.tx, y + g.ty, dw, dh, anchor);
+    touch(g, x, y, dw, dh);
     const ctx = g.ctx;
     if (tr === 0) { ctx.drawImage(img.canvas, sx, sy, w, h, x, y, w, h); return; }
     const m = TR[tr] || TR[0];
@@ -1755,11 +1780,13 @@ const MIDP = (() => {
     let yy = y + g.ty;
     if (a & 32) yy -= f.height; else if (a & 64) yy -= f.baseline;
     ctx.textBaseline = 'top';
+    touch(g, g.cx, yy, g.cw, f.height);
     fill(g);
     ctx.fillText(s, x + g.tx, yy + 1);
   }
   function arcPath(g, x, y, w, h, sa, aa, pie) {
     const ctx = g.ctx;
+    touch(g, x + g.tx, y + g.ty, w + 1, h + 1);
     const cx = x + g.tx + w / 2, cy = y + g.ty + h / 2;
     ctx.beginPath();
     if (Math.abs(aa) >= 360) { ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2); return; }
@@ -1814,6 +1841,7 @@ const MIDP = (() => {
       }),
       'fillTriangle(IIIIII)V': G((g, x1, y1, x2, y2, x3, y3) => {
         if (!applyClip(g)) return; fill(g);
+        touch(g, Math.min(x1, x2, x3) + g.tx, Math.min(y1, y2, y3) + g.ty, Math.max(x1, x2, x3) - Math.min(x1, x2, x3) + 1, Math.max(y1, y2, y3) - Math.min(y1, y2, y3) + 1);
         const c = g.ctx; c.beginPath(); c.moveTo(x1 + g.tx, y1 + g.ty); c.lineTo(x2 + g.tx, y2 + g.ty); c.lineTo(x3 + g.tx, y3 + g.ty); c.closePath(); c.fill();
       }),
       'drawString(Ljava/lang/String;III)V': G((g, s, x, y, a) => drawString(g, s.s, x, y, a)),
@@ -1824,6 +1852,7 @@ const MIDP = (() => {
         if (img === null) NPE();
         if (!applyClip(g)) return;
         const [dx, dy] = anchorImg(x + g.tx, y + g.ty, img.w, img.h, a);
+        touch(g, dx, dy, img.w, img.h);
         g.ctx.drawImage(img.canvas, dx, dy);
       }),
       'drawRegion(Ljavax/microedition/lcdui/Image;IIIIIIII)V': G((g, img, sx, sy, w, h, tr, x, y, a) => {
@@ -1847,12 +1876,13 @@ const MIDP = (() => {
           rgbCache.set(key, c);
           if (rgbCache.size > 4000) rgbCache.delete(rgbCache.keys().next().value);
         }
+        touch(g, x + g.tx, y + g.ty, w, h);
         g.ctx.drawImage(c, x + g.tx, y + g.ty);
       }),
       'copyArea(IIIIIII)V': G((g, sx, sy, w, h, dx, dy, a) => {
         const [x, y] = anchorImg(dx + g.tx, dy + g.ty, w, h, a);
         const tmp = makeCanvas(w, h); tmp.getContext('2d').drawImage(g.img.canvas, sx + g.tx, sy + g.ty, w, h, 0, 0, w, h);
-        if (applyClip(g)) g.ctx.drawImage(tmp, x, y);
+        if (applyClip(g)) { touch(g, x, y, w, h); g.ctx.drawImage(tmp, x, y); }
       }),
     },
   });
@@ -1993,8 +2023,9 @@ const MIDP = (() => {
 
   // ---------------- public API ----------------
   return {
-    state, SW, SH,
-    present(img) { if (state.screenCtx) state.screenCtx.drawImage((img || state.backImage).canvas, 0, 0); },
+    state, get SW() { return SW; }, get SH() { return SH; },
+    setScreen(w, h) { SW = w; SH = h; },
+    present(img) { blit(img || state.backImage); },
     newGraphics,
     vibration: true,
     onSave: null,
@@ -2257,6 +2288,222 @@ const SoundEngine = (() => {
 
 </script>
 <script>
+// Wide screen for Gangstar: Crime City.
+//
+// The game was written for a 240x320 screen and has that size baked into its code as plain constants
+// (sipush 240, bipush 120, the 264x312 map tile buffer...). To show more of the city we rewrite those
+// constants when the classes are loaded: each one becomes the port opcode 0xcb, which pushes a value from
+// VM.K. Instruction lengths never change, so jumps, exception tables and save states stay valid.
+'use strict';
+
+const Wide = (() => {
+  // operand bytes after the opcode (0 for everything not listed); -1 = variable length
+  const LEN = new Int8Array(256);
+  for (const o of [0x10, 0x12, 0x15, 0x16, 0x17, 0x18, 0x19, 0x36, 0x37, 0x38, 0x39, 0x3a, 0xa9, 0xbc]) LEN[o] = 1;
+  for (const o of [0x11, 0x13, 0x14, 0x84, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xbb, 0xbd, 0xc0, 0xc1, 0xc6, 0xc7]) LEN[o] = 2;
+  for (let o = 0x99; o <= 0xa8; o++) LEN[o] = 2;
+  LEN[0xc5] = 3; LEN[0xb9] = 4; LEN[0xc8] = 4; LEN[0xc9] = 4;
+  LEN[0xaa] = LEN[0xab] = LEN[0xc4] = -1;
+
+  function* walk(code) {
+    let pc = 0;
+    while (pc < code.length) {
+      const op = code[pc];
+      let n = LEN[op];
+      if (n === -1) {
+        if (op === 0xc4) n = code[pc + 1] === 0x84 ? 5 : 3;
+        else {
+          const base = (pc + 4) & ~3, rd = (i) => ((code[i] << 24) | (code[i + 1] << 16) | (code[i + 2] << 8) | code[i + 3]);
+          if (op === 0xaa) { const lo = rd(base + 4), hi = rd(base + 8); n = base - pc - 1 + 12 + (hi - lo + 1) * 4; }
+          else { const np = rd(base + 4); n = base - pc - 1 + 8 + np * 8; }
+        }
+      }
+      yield [pc, op];
+      pc += 1 + n;
+    }
+  }
+
+  // constant value at pc, if the instruction is a bipush/sipush
+  // (bipush, sipush, or ldc/ldc_w of an int from the class constant pool)
+  function constAt(code, pc, cp) {
+    const op = code[pc];
+    if (op === 0x10) return (code[pc + 1] << 24) >> 24;
+    if (op === 0x11) return (((code[pc + 1] << 8) | code[pc + 2]) << 16) >> 16;
+    if (cp && (op === 0x12 || op === 0x13)) {
+      const e = cp[op === 0x12 ? code[pc + 1] : (code[pc + 1] << 8) | code[pc + 2]];
+      if (e && e.tag === 3) return e.v;
+    }
+    return null;
+  }
+
+  // VM.K[i] is the value in use; orig[i] the game's original constant, used while drawing menus (Narrow)
+  const orig = [];
+  function setK(code, pc, value) {
+    const was = constAt(code, pc, null) ?? constAt(code, pc, curCp);
+    let idx = VM.K.findIndex((v, i) => v === value && orig[i] === was);
+    if (idx < 0) { idx = VM.K.length; VM.K.push(value); orig.push(was); }
+    if (idx > 255) throw new Error('too many patched constants');
+    const len = code[pc] === 0x11 || code[pc] === 0x13 ? 3 : 2;
+    code[pc] = 0xcb; code[pc + 1] = idx;
+    if (len === 3) code[pc + 2] = 0x00; // nop
+  }
+
+  const stats = { patched: 0 };
+  const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+  // name and descriptor of the method an invoke instruction calls
+  function invoked(code, pc, cp) {
+    const e = cp[(code[pc + 1] << 8) | code[pc + 2]], nt = e && cp[e.nti];
+    return nt ? cp[nt.ni].s + cp[nt.di].s : '';
+  }
+  // pcs of constants passed straight to Graphics.setColor(r, g, b): a 240 there is a color, not a size
+  function colorArgs(code, cp) {
+    const out = new Set(), last = [];
+    for (const [pc, op] of walk(code)) {
+      if (op === 0xb6 && invoked(code, pc, cp) === 'setColor(III)V') for (const q of last.slice(-3)) out.add(q);
+      last.push(pc); if (last.length > 3) last.shift();
+    }
+    return out;
+  }
+
+  // map: { oldValue: newValue } for every method of the class; per[methodKey] adds/overrides values for that
+  // method only, and a per-method value of null leaves that constant alone
+  let curCp = null;
+  function patchClass(name, map, per = {}, keep = null) {
+    const cls = VM.loadClass(name);
+    curCp = cls.cp;
+    for (const m of cls.methods.values()) {
+      if (!m.code || (keep && !keep.includes(m.key))) continue;
+      const mm = per[m.key] === false ? null : Object.assign({}, map, per[m.key]);
+      if (!mm) continue;
+      const colors = colorArgs(m.code, cls.cp);
+      for (const [pc] of walk(m.code)) {
+        const v = constAt(m.code, pc, cls.cp);
+        if (v === null || colors.has(pc)) continue;
+        const at = v + '@' + pc;                      // "value@pc" patches one instruction only
+        const to = has(mm, at) ? mm[at] : has(mm, v) ? mm[v] : null;
+        if (to !== null && to !== v) { setK(m.code, pc, to); stats.patched++; }
+      }
+    }
+  }
+
+  function apply(W) {
+    if (W === 240 && !globalThis.__forcePatch) return;
+    const cols = (W + 24) / 24;                      // tile columns in the wrap-around map buffer
+    const map = { 240: W, 239: W - 1, 120: W >> 1, 264: W + 24, 76800: W * 320,
+      30720: (W >> 1) << 8, 61440: W << 8, 67584: (W + 24) << 8 };  // the same sizes in 24.8 fixed point
+    const per = {
+      'b([B)[B': false,                              // data decompressor: its 240/256 are not screen sizes
+      'Z()V': { 11: cols },                          // map buffer refresh: 11 = 264/24 columns
+      'u(II)V': { '11@72': cols },                   // tile -> buffer column (tile x mod 11)
+      // the HUD keeps its original 240-wide layout; Hud below spreads it over the wider screen
+      'j(Z)V': false,                                // HUD bar backgrounds
+      'aP()V': { '240@687': 240, '240@751': 240 },   // bottom bar clip rectangles
+      'aR()V': false,                                // radar
+    };
+    // right softkey label ("SALTAR", "ATRÁS") at x = 238, and the dialog text wrap width 236
+    // (other 2xx constants nearby are text ids, not positions)
+    const wrap = Object.fromEntries([302, 719, 1224, 1270, 1316].map((pc) => ['236@' + pc, W - 4]));
+    Object.assign(per, { 'b(III)V': { 238: W - 2 }, 'aL()Z': Object.assign(wrap, { '120@227': 120 }) });
+    per['bv()V'] = { '120@298': 120 };              // 120 here is an effect timer, not the screen centre
+    // (and in aL, 120@227 is a dialog timer)
+    const dbg = globalThis.__wideDbg || {};
+    if (dbg.per) for (const k in dbg.per) per[k] = dbg.per[k] === false ? false : Object.assign({}, per[k], dbg.per[k]);
+    patchClass('d', map, per, dbg.keep || null);
+    patchClass('a', { 240: W, 239: W - 1 });         // text renderer: default wrap width and right edge
+    Narrow.init(W);
+    Hud.init(W);
+  }
+
+  // ----- menus in their original layout -----
+  // Title, main menu and the pause menu are built around a 240 px screen (backgrounds, boxes, aligned
+  // text) and look broken when stretched. While those screens are drawn the patched constants go back
+  // to their original values and drawing is shifted to the middle of the screen.
+  const Narrow = (() => {
+    // d.T -> the method that runs (logic and drawing) for that screen; loading (6) and gameplay (7) stay wide
+    const STATES = { 1: 'ad()V', 3: 'af()V', 4: 'ag()V', 5: 'ak()V', 8: 'aU()V', 9: 'ah()V' };
+    // the pause screen (9) draws the city behind the menu with these: they always run wide
+    const WIDE = ['at()V', 'C(II)V', 'Z()V', 'Y()V'];
+    let W = 240, dx = 0, on = false, depth = 0, wideK = null;
+    const g = () => { const D = VM.classes.get('d'); return D.sv.am && D.sv.am.g; };
+    function init(w) {
+      W = w; dx = (w - 240) >> 1;
+      for (const key of Object.values(STATES)) {
+        VM.hookMethod('d', key, (origFn) => {
+          const gr = g();
+          if (!gr || depth) return origFn();
+          wideK = VM.K.slice();
+          for (let i = 0; i < orig.length; i++) VM.K[i] = orig[i];
+          gr.tx += dx; on = true; depth++;
+          try { return origFn(); } finally { depth--; gr.tx -= dx; VM.K.splice(0, wideK.length, ...wideK); }
+        });
+      }
+      for (const key of WIDE) {
+        VM.hookMethod('d', key, (origFn, ...a) => {
+          if (!depth) return origFn(...a);
+          const gr = g(), narrowK = VM.K.slice();
+          VM.K.splice(0, wideK.length, ...wideK); if (gr) gr.tx -= dx; depth = 0;
+          try { return origFn(...a); } finally { depth = 1; if (gr) gr.tx += dx; VM.K.splice(0, narrowK.length, ...narrowK); }
+        });
+      }
+    }
+    function current() {
+      if (on && !(VM.classes.get('d').sv.T in STATES)) on = false;
+      return on;
+    }
+    return { init, get on() { return current(); }, get dx() { return dx; } };
+  })();
+
+  // ----- HUD layout on a wide screen -----
+  // The game draws its HUD bars (top: rows 0-17, bottom: rows 294-319) in the original 240 px. When the
+  // screen is presented, the right half of each bar is moved to the right edge and the gap is filled
+  // with a plain piece of the bar. The game only redraws the HUD when something changes, so we keep
+  // track of whether the bar currently on screen is the HUD: drawing it (d.j) turns that on, and any
+  // other drawing that lands past x=240 in those rows (dialogs, cutscenes, menus) turns it off.
+  const Hud = (() => {
+    let W = 240, top = false, bottom = false;
+    const BARS = [
+      { y: 0, h: 18, split: 165, fill: 170 },      // stars, palms | skyline, money (or a street name, see below)
+      { y: 294, h: 26, split: 160, fill: 199 },    // radar, health, palms | weapon, ammo
+    ];
+    function init(w) {
+      W = w;
+      VM.hookMethod('d', 'j(Z)V', (orig, isTop) => { const r = orig(isTop); if (isTop) top = true; else bottom = true; return r; });
+      MIDP.state.onDraw = (img, x1, y1, x2, y2) => {
+        if (x2 <= 240 || img !== MIDP.state.backImage) return;
+        if (y1 < 18) top = false;
+        if (y2 > 294) bottom = false;
+      };
+      MIDP.state.blit = blit;
+    }
+    function blit(img, ctx) {
+      const src = img.canvas;
+      if (Narrow.on) {                               // a menu drawn in the middle: black bands on the sides
+        const dx = Narrow.dx;
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, dx, 320); ctx.fillRect(dx + 240, 0, W - dx - 240, 320);
+        ctx.drawImage(src, dx, 0, 240, 320, dx, 0, 240, 320);
+        return;
+      }
+      if (!top && !bottom) { ctx.drawImage(src, 0, 0); return; }
+      ctx.drawImage(src, 0, 18, W, 276, 0, 18, W, 276);
+      BARS.forEach((b, i) => {
+        if (!(i ? bottom : top)) { ctx.drawImage(src, 0, b.y, W, b.h, 0, b.y, W, b.h); return; }
+        // while a street name is shown (d.da > 0, d.cZ[0] == 0) it is centred in x = 96..240: keep that box whole
+        const D = VM.classes.get('d').sv, split = !i && D.da > 0 && D.cZ && D.cZ[0] === 0 ? 96 : b.split;
+        const right = 240 - split;
+        ctx.drawImage(src, 0, b.y, split, b.h, 0, b.y, split, b.h);
+        ctx.drawImage(src, b.fill, b.y, 1, b.h, split, b.y, W - right - split, b.h);
+        ctx.drawImage(src, split, b.y, right, b.h, W - right, b.y, right, b.h);
+      });
+    }
+    return { init, get state() { return { top, bottom }; } };
+  })();
+
+  return { apply, walk, constAt, patchClass, stats, Hud };
+})();
+
+</script>
+<script>
 // Gangstar: Crime City specific port layer.
 //
 // 60 fps: the game logic keeps running at its native 10 ticks/s. Between ticks we render extra frames with
@@ -2281,7 +2528,33 @@ const Gangstar = (() => {
   let D = null, userClasses = [];
   let prev = null, cur = null, tickAt = 0, tickLen = 100, lastAlpha = -1;
   let active = false, inInterp = false, drawSnap = null;
-  const opts = { smooth: true };
+  const opts = { smooth: true, speed: 1 };
+
+  // ----- game clock and tick pacing -----
+  // The game's main loop (d.run) runs one tick, then spins on Thread.yield() until 100 ms of
+  // System.currentTimeMillis() have passed. Waking up every few ms overshoots (the game ran at ~9 ticks/s),
+  // so the yield inside that wait sleeps exactly until the tick is due. The clock the game sees can run
+  // faster than real time ("game speed"): everything, including mission timers, scales together.
+  let clockReal = performance.now(), clockGame = Date.now();
+  const gameNow = () => clockGame + (performance.now() - clockReal) * opts.speed;
+  function setSpeed(v) {
+    const g = gameNow();
+    clockReal = performance.now(); clockGame = g;
+    opts.speed = Math.min(2, Math.max(0.5, v || 1));
+  }
+  function yieldHook(t) {
+    const f = t.frames[t.frames.length - 1];
+    if (!f || f.m.name !== 'run' || f.m.cls !== D) return YIELD;
+    if (f.ipc === 64) return undefined;          // unconditional yield at the top of the loop: the tick is next
+    if (f.ipc === 101) {                          // inside the wait for the next tick
+      const due = Number(D.sv.at) + 100;
+      const left = (due - gameNow()) / opts.speed;  // real ms
+      if (left > 3) { t.sleepFor = left - 2; return YIELD; } // timers wake late: aim a bit early...
+      while (gameNow() < due) { /* ...and wait out the last couple of ms here */ }
+      return undefined;
+    }
+    return YIELD;
+  }
   const cheats = { health: false, ammo: false, noPolice: false };
 
   // Game variables (found by reverse engineering d.java):
@@ -2313,6 +2586,8 @@ const Gangstar = (() => {
     VM.loadClass('java/util/Random').onNew = (o) => randoms.push(o);
     D = VM.loadClass('d');
     MIDP.state.flushHook = onTickFlush;
+    MIDP.state.clock = () => Math.floor(gameNow());
+    MIDP.state.yieldHook = yieldHook;
     VM.hookMethod('d', 'b(Ljavax/microedition/lcdui/Graphics;)V', (orig, g) => {
       if (!inInterp && opts.smooth) drawSnap = saveState();
       return orig(g);
@@ -2374,8 +2649,11 @@ const Gangstar = (() => {
 
   const lerp = (a, b, t, max) => (Math.abs(b - a) > max ? b : Math.round(a + (b - a) * t));
 
+  // the live state only changes when Java code runs (VM.epoch), so it is captured once per change, not per frame
+  let liveSnap = null, liveEpoch = -1;
   function renderInterpolated(alpha) {
-    const saved = saveState();
+    if (!liveSnap || liveEpoch !== VM.epoch) liveSnap = saveState();
+    const saved = liveSnap;
     try {
       restoreState(cur.state);
       for (const [o, c] of cur.actors) {
@@ -2396,6 +2674,7 @@ const Gangstar = (() => {
     } finally {
       inInterp = false;
       restoreState(saved);
+      liveEpoch = VM.epoch;
     }
     MIDP.present();
   }
@@ -2425,10 +2704,10 @@ const Gangstar = (() => {
       if (n === 'a' || n === 'b' || n === 'c' || n === 'd') { tracked.push(o); if (n === 'b') actors.push(o); }
       else if (n === 'java/util/Random') randoms.push(o);
     }
-    prev = cur = null; drawSnap = null; active = false; tickAt = 0;
+    prev = cur = null; drawSnap = null; active = false; tickAt = 0; liveSnap = null;
   }
 
-  return { beforeStart, adopt, opts, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
+  return { beforeStart, adopt, opts, setSpeed, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
 })();
 
 </script>
@@ -2514,12 +2793,19 @@ const SaveState = (() => {
     const thread = { cls: f.m.cls.name, key: f.m.key, pc: f.pc, ipc: f.ipc, stack: f.stack.map(enc), locals: f.locals.map(enc) };
     const st = MIDP.state;
     const roots = { current: enc(st.current), display: enc(st.display), midlet: enc(st.midlet) };
-    return { format: FORMAT, game: 'gangstar', entries, statics, thread, roots };
+    return { format: FORMAT, game: 'gangstar', w: MIDP.SW, entries, statics, thread, roots };
   }
 
   // ---------------- restore ----------------
+  // a save state holds the game's memory, which is laid out for one screen width (see Wide)
+  const screenName = (w) => ({ 240: 'Original', 384: 'Ancha', 432: 'Panorámica', 576: 'Cine 16:9' }[w] || w + ' px');
+  function checkWidth(data) {
+    const w = data.w || 240;
+    if (w !== MIDP.SW) throw new Error('se guardó con la pantalla ' + screenName(w) + '; elegila en Menú → Pantalla para cargarla');
+  }
   async function restore(data) {
     if (!data || data.format !== FORMAT || data.game !== 'gangstar') throw new Error('Formato de guardado desconocido');
+    checkWidth(data);
     // 1. decode all images first (async), so the swap below happens in one go
     const bitmaps = new Map();
     await Promise.all(data.entries.map(async (e, id) => {
@@ -2649,9 +2935,9 @@ const SaveState = (() => {
     });
   }
   function thumbnail() {
-    const c = document.createElement('canvas'); c.width = 120; c.height = 160;
+    const c = document.createElement('canvas'); c.width = Math.round(MIDP.SW / 2); c.height = 160;
     const x = c.getContext('2d'); x.imageSmoothingEnabled = true;
-    x.drawImage(document.getElementById('screen'), 0, 0, 120, 160);
+    x.drawImage(document.getElementById('screen'), 0, 0, c.width, 160);
     return c.toDataURL('image/jpeg', 0.7);
   }
   async function saveSlot(slot, lang) {
@@ -2708,7 +2994,17 @@ const PREFIX = 'gangstar:';
     smooth: store.get('smooth', true),
     vib: store.get('vib', true),
     sound: store.get('sound', true),
+    screen: store.get('screen', '240'),   // width the game is told about: 240 = original, wider shows more city
+    speed: store.get('speed', '1'),
   };
+  // (?w=NNN in the address overrides the setting, for testing)
+  const SCREEN_W = (() => {
+    const q = new URLSearchParams(location.search).get('w');
+    const w = +(q || settings.screen) || 240;
+    return Math.max(240, Math.min(576, Math.round(w / 24) * 24));  // multiple of 24: the map is built from 24 px tiles
+  })();
+  MIDP.setScreen(SCREEN_W, 320);
+  $('screen').width = SCREEN_W;
 
   // ---------- key output ----------
   function press(code, down) { SoundEngine.unlock(); MIDP.key(code, down); }
@@ -2808,12 +3104,12 @@ const PREFIX = 'gangstar:';
     for (const id of ['joy', 'gbtns', 'pnav', 'pnum']) park.appendChild($(id));
     let scale, u = 60;
     const a = mode === 'game' ? [$('joy'), $('gbtns')] : mode === 'phone' ? [$('pnav'), $('pnum')] : [];
-    if (mode === 'none') scale = Math.min(W / 240, H / 320);
+    if (mode === 'none') scale = Math.min(W / MIDP.SW, H / 320);
     else if (landscape) {
       // each side panel is about 3 key units wide
       u = Math.max(34, Math.min(72, H / (mode === 'game' ? 3.3 : 4.1), W / (mode === 'game' ? 12 : 14)));
       const sideW = u * (mode === 'game' ? 3.0 : 4.75);
-      scale = Math.min((W - sideW * 2 - 24) / 240, H / 320);
+      scale = Math.min((W - sideW * 2 - 24) / MIDP.SW, H / 320);
       sideL.appendChild(a[0]); sideR.appendChild(a[1]);
       sideL.style.width = sideR.style.width = sideW + 'px';
     } else {
@@ -2821,7 +3117,7 @@ const PREFIX = 'gangstar:';
       const pad = mode === 'phone' ? 34 : 0;
       u = Math.max(40, Math.min(70, (W - pad) / (mode === 'game' ? 5.8 : 4.6)));
       const ctlH = mode === 'game' ? u * 2.65 : u * 2.3 + u * 2.9 + 12;
-      scale = Math.min((W - pad) / 240, (H - ctlH - 12 - (mode === 'phone' ? 46 : 0)) / 320);
+      scale = Math.min((W - pad) / MIDP.SW, (H - ctlH - 12 - (mode === 'phone' ? 46 : 0)) / 320);
       if (mode === 'game') { below.style.flexDirection = 'row'; below.appendChild(a[0]); below.appendChild(a[1]); }
       else { below.style.flexDirection = 'column'; below.appendChild(a[0]); below.appendChild(a[1]); }
     }
@@ -2829,8 +3125,8 @@ const PREFIX = 'gangstar:';
     if (scale >= 1) scale = Math.floor(scale * 8) / 8;
     scale = Math.max(0.5, scale);
     document.documentElement.style.setProperty('--u', u + 'px');
-    const sw = $('screenWrap'); sw.style.width = Math.round(240 * scale) + 'px'; sw.style.height = Math.round(320 * scale) + 'px';
-    if (!landscape && mode === 'game') below.style.width = Math.max(240 * scale, u * 5.6) + 'px';
+    const sw = $('screenWrap'); sw.style.width = Math.round(MIDP.SW * scale) + 'px'; sw.style.height = Math.round(320 * scale) + 'px';
+    if (!landscape && mode === 'game') below.style.width = Math.max(MIDP.SW * scale, u * 5.6) + 'px';
     else below.style.width = '';
   }
   addEventListener('resize', layout);
@@ -2860,6 +3156,8 @@ const PREFIX = 'gangstar:';
   }
   seg('segCtl', 'ctl', layout);
   seg('segLang', 'lang', () => { sessionStorage.setItem(PREFIX + 'msg', settings.lang === 'es' ? 'Idioma: español' : 'Language: English'); location.reload(); });
+  seg('segScreen', 'screen', () => { sessionStorage.setItem(PREFIX + 'msg', 'Pantalla: ' + settings.screen + ' × 320'); location.reload(); });
+  seg('segSpeed', 'speed', () => Gangstar.setSpeed(+settings.speed));
   $('optSmooth').checked = settings.smooth;
   $('optSmooth').onchange = (e) => { settings.smooth = e.target.checked; store.set('smooth', settings.smooth); Gangstar.opts.smooth = settings.smooth; };
   $('optVib').checked = settings.vib;
@@ -3041,7 +3339,7 @@ const PREFIX = 'gangstar:';
   }
   function start(files, langs) {
     if (langs[settings.lang]) files['o'] = langs[settings.lang];
-    MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: Gangstar.beforeStart });
+    MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: () => { Wide.apply(SCREEN_W); Gangstar.beforeStart(); Gangstar.setSpeed(+settings.speed); } });
   }
   function pickData() {
     return new Promise((resolve) => {

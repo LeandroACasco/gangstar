@@ -188,8 +188,13 @@
     <h3>Idioma del juego</h3>
     <div class="seg" id="segLang"><button data-v="es">Español</button><button data-v="en">English</button></div>
     <p>Cambiar el idioma reinicia el juego (la partida guardada se mantiene).</p>
+    <h3>Pantalla</h3>
+    <div class="seg" id="segScreen"><button data-v="240">Original</button><button data-v="384">Ancha</button><button data-v="432">Panorámica</button><button data-v="576">Cine 16:9</button></div>
+    <p>Las pantallas más anchas muestran más ciudad a los costados. Cambiarla reinicia el juego; los guardados rápidos (ranuras) solo cargan en la pantalla en que se hicieron, la partida normal sí se mantiene.</p>
+    <h3>Velocidad del juego</h3>
+    <div class="seg" id="segSpeed"><button data-v="1">Normal</button><button data-v="1.25">Rápida ×1,25</button><button data-v="1.5">Muy rápida ×1,5</button></div>
     <h3>Imagen</h3>
-    <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave a 60 fps</label>
+    <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave (cuadros intermedios a la frecuencia de tu pantalla)</label>
     <label class="chk"><input type="checkbox" id="optVib"> Vibración</label>
     <h3>Trucos</h3>
     <div class="cheatrow">
@@ -271,6 +276,9 @@
 /*AUDIO*/
 </script>
 <script>
+/*WIDE*/
+</script>
+<script>
 /*GANGSTAR*/
 </script>
 <script>
@@ -293,7 +301,17 @@ const PREFIX = 'gangstar:';
     smooth: store.get('smooth', true),
     vib: store.get('vib', true),
     sound: store.get('sound', true),
+    screen: store.get('screen', '240'),   // width the game is told about: 240 = original, wider shows more city
+    speed: store.get('speed', '1'),
   };
+  // (?w=NNN in the address overrides the setting, for testing)
+  const SCREEN_W = (() => {
+    const q = new URLSearchParams(location.search).get('w');
+    const w = +(q || settings.screen) || 240;
+    return Math.max(240, Math.min(576, Math.round(w / 24) * 24));  // multiple of 24: the map is built from 24 px tiles
+  })();
+  MIDP.setScreen(SCREEN_W, 320);
+  $('screen').width = SCREEN_W;
 
   // ---------- key output ----------
   function press(code, down) { SoundEngine.unlock(); MIDP.key(code, down); }
@@ -393,12 +411,12 @@ const PREFIX = 'gangstar:';
     for (const id of ['joy', 'gbtns', 'pnav', 'pnum']) park.appendChild($(id));
     let scale, u = 60;
     const a = mode === 'game' ? [$('joy'), $('gbtns')] : mode === 'phone' ? [$('pnav'), $('pnum')] : [];
-    if (mode === 'none') scale = Math.min(W / 240, H / 320);
+    if (mode === 'none') scale = Math.min(W / MIDP.SW, H / 320);
     else if (landscape) {
       // each side panel is about 3 key units wide
       u = Math.max(34, Math.min(72, H / (mode === 'game' ? 3.3 : 4.1), W / (mode === 'game' ? 12 : 14)));
       const sideW = u * (mode === 'game' ? 3.0 : 4.75);
-      scale = Math.min((W - sideW * 2 - 24) / 240, H / 320);
+      scale = Math.min((W - sideW * 2 - 24) / MIDP.SW, H / 320);
       sideL.appendChild(a[0]); sideR.appendChild(a[1]);
       sideL.style.width = sideR.style.width = sideW + 'px';
     } else {
@@ -406,7 +424,7 @@ const PREFIX = 'gangstar:';
       const pad = mode === 'phone' ? 34 : 0;
       u = Math.max(40, Math.min(70, (W - pad) / (mode === 'game' ? 5.8 : 4.6)));
       const ctlH = mode === 'game' ? u * 2.65 : u * 2.3 + u * 2.9 + 12;
-      scale = Math.min((W - pad) / 240, (H - ctlH - 12 - (mode === 'phone' ? 46 : 0)) / 320);
+      scale = Math.min((W - pad) / MIDP.SW, (H - ctlH - 12 - (mode === 'phone' ? 46 : 0)) / 320);
       if (mode === 'game') { below.style.flexDirection = 'row'; below.appendChild(a[0]); below.appendChild(a[1]); }
       else { below.style.flexDirection = 'column'; below.appendChild(a[0]); below.appendChild(a[1]); }
     }
@@ -414,8 +432,8 @@ const PREFIX = 'gangstar:';
     if (scale >= 1) scale = Math.floor(scale * 8) / 8;
     scale = Math.max(0.5, scale);
     document.documentElement.style.setProperty('--u', u + 'px');
-    const sw = $('screenWrap'); sw.style.width = Math.round(240 * scale) + 'px'; sw.style.height = Math.round(320 * scale) + 'px';
-    if (!landscape && mode === 'game') below.style.width = Math.max(240 * scale, u * 5.6) + 'px';
+    const sw = $('screenWrap'); sw.style.width = Math.round(MIDP.SW * scale) + 'px'; sw.style.height = Math.round(320 * scale) + 'px';
+    if (!landscape && mode === 'game') below.style.width = Math.max(MIDP.SW * scale, u * 5.6) + 'px';
     else below.style.width = '';
   }
   addEventListener('resize', layout);
@@ -445,6 +463,8 @@ const PREFIX = 'gangstar:';
   }
   seg('segCtl', 'ctl', layout);
   seg('segLang', 'lang', () => { sessionStorage.setItem(PREFIX + 'msg', settings.lang === 'es' ? 'Idioma: español' : 'Language: English'); location.reload(); });
+  seg('segScreen', 'screen', () => { sessionStorage.setItem(PREFIX + 'msg', 'Pantalla: ' + settings.screen + ' × 320'); location.reload(); });
+  seg('segSpeed', 'speed', () => Gangstar.setSpeed(+settings.speed));
   $('optSmooth').checked = settings.smooth;
   $('optSmooth').onchange = (e) => { settings.smooth = e.target.checked; store.set('smooth', settings.smooth); Gangstar.opts.smooth = settings.smooth; };
   $('optVib').checked = settings.vib;
@@ -626,7 +646,7 @@ const PREFIX = 'gangstar:';
   }
   function start(files, langs) {
     if (langs[settings.lang]) files['o'] = langs[settings.lang];
-    MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: Gangstar.beforeStart });
+    MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: () => { Wide.apply(SCREEN_W); Gangstar.beforeStart(); Gangstar.setSpeed(+settings.speed); } });
   }
   function pickData() {
     return new Promise((resolve) => {

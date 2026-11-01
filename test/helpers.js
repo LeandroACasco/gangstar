@@ -4,7 +4,7 @@ exports.open = async (vp = { width: 420, height: 860 }, extra = {}) => {
   const p = await b.newPage({ viewport: vp, ...extra });
   p.on('pageerror', (e) => console.log('PAGEERROR ' + e.message));
   p.on('console', (m) => { if (m.type() === 'error') console.log('ERR', m.text().slice(0, 300)); });
-  await p.goto('file://' + process.cwd() + '/dist/gangstar.html');
+  await p.goto('file://' + process.cwd() + '/dist/gangstar.html' + (process.env.GQ || ''));  // GQ='?w=432' tests a wide screen
   const k = async (c, ms = 150) => { await p.evaluate((c) => __midp.key(c, true), c); await p.waitForTimeout(ms); await p.evaluate((c) => __midp.key(c, false), c); };
   const shot = async (name) => { const d = await p.evaluate(() => document.getElementById('screen').toDataURL()); require('fs').writeFileSync('test/' + name + '.png', Buffer.from(d.split(',')[1], 'base64')); };
   const hud = () => p.evaluate(() => { const c = document.getElementById('screen').getContext('2d').getImageData(0, 300, 240, 20).data; let n = 0; for (let i = 0; i < c.length; i += 4) if (c[i] > 150 && c[i + 2] > 100 && c[i + 1] < 120) n++; return n; });
