@@ -92,6 +92,7 @@
   dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(440px, 94vw); max-height: 90vh; }
   dialog::backdrop { background: rgba(0,0,0,.6); }
   .dlg { padding: 18px; display: flex; flex-direction: column; gap: 10px; overflow: auto; max-height: 88vh; touch-action: pan-y; }
+  .dlg > * { flex-shrink: 0; }  /* a long menu scrolls instead of squashing its rows */
   .dlg h2 { margin: 0 0 4px; font-size: 16px; }
   .dlg h3 { margin: 10px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .dlg p { margin: 0; color: var(--muted); font-size: 13px; }
