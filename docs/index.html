@@ -2363,7 +2363,6 @@ const Wide = (() => {
     let idx = VM.K.findIndex((v, i) => v === value && orig[i] === was);
     if (idx < 0) { idx = VM.K.length; VM.K.push(value); orig.push(was); }
     if (idx > 255) throw new Error('too many patched constants');
-    if (Object.values(BUF).includes(curMethod)) keepWide.add(idx);
     const len = code[pc] === 0x11 || code[pc] === 0x13 ? 3 : 2;
     code[pc] = 0xcb; code[pc + 1] = idx;
     if (len === 3) code[pc + 2] = 0x00; // nop
@@ -2395,7 +2394,6 @@ const Wide = (() => {
     curCp = cls.cp;
     for (const m of cls.methods.values()) {
       if (!m.code || (keep && !keep.includes(m.key))) continue;
-      curMethod = m.key;
       const mm = per[m.key] === false ? null : Object.assign({}, map, per[m.key]);
       if (!mm) continue;
       const colors = colorArgs(m.code, cls.cp);
@@ -2418,6 +2416,9 @@ const Wide = (() => {
   // positions in it, b(Graphics) copies it to the screen, the a(...) drawers wrap sprites into it), while
   // Z() still redraws only the visible 11 (or more on a wide screen) by 13, so the tiles that just left
   // stay valid in the spare slot. Applies to every width, the original one included.
+  // Menus (title, main menu...) also use this image for their animated background, with the original
+  // 264/312 written in their own code: while they run (Narrow) every patched constant, these included,
+  // goes back to its original value, so both sides agree on the layout.
   const BUF = { Y: 'Y()V', D: 'd(IIII)V', U: 'u(II)V', BLIT: 'b(Ljavax/microedition/lcdui/Graphics;)V',
     A1: 'a(La;IIIII)V', A2: 'a(IIIIII)V' };
   function bufferPer(W) {
@@ -2428,14 +2429,12 @@ const Wide = (() => {
       [BUF.U]: Object.assign({ '11@72': BW / 24, '13@81': BH / 24 }, wrap),   // tile -> buffer slot
     };
   }
-  const keepWide = new Set();                       // K entries that menus must not swap back (Narrow)
-  let curMethod = '';
 
   function apply(W) {
     const cols = (W + 24) / 24;                      // tiles Z() redraws across the screen
     if (W === 240 && !globalThis.__forcePatch) {     // original width: only the map buffer changes
       patchClass('d', {}, bufferPer(W), Object.values(BUF));
-      for (const i of keepWide) orig[i] = VM.K[i];
+      Narrow.init(W);                                // menus: original buffer layout (dx = 0)
       return;
     }
     const map = { 240: W, 239: W - 1, 120: W >> 1, 264: W + 24, 76800: W * 320,
@@ -2458,7 +2457,6 @@ const Wide = (() => {
     if (dbg.per) for (const k in dbg.per) per[k] = dbg.per[k] === false ? false : Object.assign({}, per[k], dbg.per[k]);
     patchClass('d', map, per, dbg.keep || null);
     patchClass('a', { 240: W, 239: W - 1 });         // text renderer: default wrap width and right edge
-    for (const i of keepWide) orig[i] = VM.K[i];
     Narrow.init(W);
     Hud.init(W);
   }
