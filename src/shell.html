@@ -116,6 +116,25 @@
   kbd { background: var(--key); border-radius: 4px; padding: 1px 6px; font: 12px ui-monospace, monospace; }
   textarea { width: 100%; height: 110px; background: #0e0e10; color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: 11px ui-monospace, monospace; padding: 8px; user-select: text; -webkit-user-select: text; }
   label.chk { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+  label.rng { display: grid; grid-template-columns: 7.5em 1fr 3em; gap: 8px; align-items: center; font-size: 14px; margin: 4px 0; }
+  label.rng input { width: 100%; accent-color: var(--accent); } label.rng output { color: var(--muted); font-size: 12px; text-align: right; }
+  /* landscape on wide screens: the picture fills the screen and the controls float over it */
+  .pad { position: fixed; z-index: 4; display: none; opacity: var(--padA, .6); touch-action: none; }
+  body.overlay .pad { display: block; }
+  #padL { left: calc(18px + env(safe-area-inset-left)); bottom: calc(12px + env(safe-area-inset-bottom)); }
+  #padR { right: calc(18px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); }
+  body.overlay #stage { padding: 0; gap: 0; }
+  body.overlay #screenWrap { border-radius: 0; }
+  body.overlay .gb:not(.fire) { background: rgba(38,38,46,.72); box-shadow: none; }
+  body.overlay .joy .base { background: radial-gradient(circle, rgba(36,36,42,.75) 0 55%, rgba(28,28,33,.75) 56%); }
+  body.overlay header { opacity: .55; left: 50%; right: auto; transform: translateX(-50%); }
+  body.editpad .pad { display: block; opacity: 1; outline: 2px dashed var(--accent); outline-offset: 6px; border-radius: 16px; cursor: move; }
+  body.editpad .pad * { pointer-events: none; }
+  #padDone { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 6; display: none; text-align: center;
+    background: rgba(20,20,26,.92); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; font-size: 13px; }
+  body.editpad #padDone { display: block; }
+  #padDone button { margin-top: 8px; border: none; border-radius: 9px; padding: 8px 14px; font: 600 13px system-ui; background: var(--accent); color: #111; cursor: pointer; }
+  #padDone button.sec { background: #34343c; color: var(--text); margin-left: 6px; }
   .slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   @media (max-width: 520px) { .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   #resume { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); z-index: 3; width: min(92%, 340px);
@@ -197,6 +216,9 @@
     <button class="k pk" data-k="42">*<small>&nbsp;</small></button><button class="k pk" data-k="48">0<small>␣</small></button><button class="k pk" data-k="35">#<small>&nbsp;</small></button>
   </div>
 </div>
+<div class="pad" id="padL"></div><div class="pad" id="padR"></div>
+<div id="padDone">Arrastrá el joystick y los botones adonde te queden cómodos.<br>
+  <button id="padOk">Listo ✔</button><button class="sec" id="padReset">Volver a la posición inicial</button></div>
 <div id="toast"></div>
 <div id="fps" hidden></div>
 
@@ -205,6 +227,10 @@
     <h2>Menú</h2>
     <h3>Controles táctiles</h3>
     <div class="seg" id="segCtl"><button data-v="game">Botones del juego</button><button data-v="phone">Celular clásico</button><button data-v="none">Ocultos</button></div>
+    <label class="chk"><input type="checkbox" id="optOverlay"> Acostado con pantalla ancha: la imagen ocupa toda la pantalla y los botones van encima</label>
+    <label class="rng">Tamaño botones <input type="range" id="optPadSize" min="70" max="150" step="5"><output id="outPadSize"></output></label>
+    <label class="rng">Transparencia <input type="range" id="optPadA" min="20" max="100" step="5"><output id="outPadA"></output></label>
+    <div class="row"><button class="btn" id="padEdit">🎮 Acomodar los botones</button></div>
     <h3>Idioma del juego</h3>
     <div class="seg" id="segLang"><button data-v="es">Español</button><button data-v="en">English</button></div>
     <p>Cambiar el idioma reinicia el juego (la partida guardada se mantiene).</p>
@@ -334,6 +360,10 @@ const PREFIX = 'gangstar:';
     fps: store.get('fps', false),
     satMap: store.get('satMap', true),
     autosave: store.get('autosave', true),
+    overlay: store.get('overlay', true),
+    padSize: store.get('padSize', 100),
+    padA: store.get('padA', 60),
+    padPos: store.get('padPos', {}),
     quick: store.get('quick', true),
     satRadar: store.get('satRadar', true),
     sound: store.get('sound', true),
@@ -475,6 +505,23 @@ const PREFIX = 'gangstar:';
     for (const id of ['joy', 'gbtns', 'pnav', 'pnum']) park.appendChild($(id));
     let scale, u = 60;
     const a = mode === 'game' ? [$('joy'), $('gbtns')] : mode === 'phone' ? [$('pnav'), $('pnum')] : [];
+    const overlay = mode === 'game' && landscape && settings.overlay && MIDP.SW > 240;
+    document.body.classList.toggle('overlay', overlay);
+    if (overlay) {
+      // the picture fills the screen; the joystick and buttons float over its lower corners
+      const FW = stage.clientWidth, FH = stage.clientHeight;
+      scale = Math.min(FW / MIDP.SW, FH / 320);
+      u = Math.max(34, Math.min(84, FH / 4.4)) * settings.padSize / 100;
+      padBottom = Math.round(26 * scale) + 8;          // above the game's bottom bar (radar, health, weapon)
+      sideL.style.width = sideR.style.width = '0';
+      $('padL').appendChild(a[0]); $('padR').appendChild(a[1]);
+      below.style.display = 'none';
+      document.documentElement.style.setProperty('--u', u + 'px');
+      document.documentElement.style.setProperty('--padA', settings.padA / 100);
+      const sw = $('screenWrap'); sw.style.width = Math.round(MIDP.SW * scale) + 'px'; sw.style.height = Math.round(320 * scale) + 'px';
+      placePads();
+      return;
+    }
     if (mode === 'none') scale = Math.min(W / MIDP.SW, H / 320);
     else if (landscape) {
       // each side panel is about 3 key units wide
@@ -502,6 +549,55 @@ const PREFIX = 'gangstar:';
   }
   addEventListener('resize', layout);
   addEventListener('orientationchange', () => setTimeout(layout, 200));
+
+  // ---------- floating controls: position, size, transparency ----------
+  let padBottom = 12;
+  function placePads() {
+    for (const id of ['padL', 'padR']) {
+      const el = $(id), p = settings.padPos[id] || { x: 0, y: 0 };
+      el.style.bottom = 'calc(' + padBottom + 'px + env(safe-area-inset-bottom))';
+      el.style.translate = '0 0';
+      const r = el.getBoundingClientRect();           // keep it on screen whatever the size of the screen
+      const x = Math.max(-r.left + 4, Math.min(innerWidth - r.right - 4, p.x));
+      const y = Math.max(-r.top + 4, Math.min(innerHeight - r.bottom - 4, p.y));
+      el.style.translate = x + 'px ' + y + 'px';
+    }
+  }
+  (function padEditing() {
+    let drag = null;
+    for (const id of ['padL', 'padR']) {
+      const el = $(id);
+      el.addEventListener('pointerdown', (e) => {
+        if (!document.body.classList.contains('editpad')) return;
+        e.preventDefault(); e.stopPropagation();
+        const p = settings.padPos[id] || { x: 0, y: 0 };
+        drag = { id, sx: e.clientX, sy: e.clientY, x: p.x, y: p.y, pid: e.pointerId };
+        try { el.setPointerCapture(e.pointerId); } catch (x) {}
+      }, true);
+      el.addEventListener('pointermove', (e) => {
+        if (!drag || drag.id !== id || e.pointerId !== drag.pid) return;
+        settings.padPos[id] = { x: drag.x + e.clientX - drag.sx, y: drag.y + e.clientY - drag.sy };
+        placePads();
+      });
+      el.addEventListener('pointerup', () => { if (drag && drag.id === id) { drag = null; store.set('padPos', settings.padPos); } });
+    }
+    $('padEdit').onclick = () => {
+      if (settings.ctl !== 'game') { settings.ctl = 'game'; store.set('ctl', 'game'); }
+      menu.close(); document.body.classList.add('editpad'); layout();
+      if (!document.body.classList.contains('overlay')) toast('Acomodar los botones funciona con el celular acostado y pantalla ancha');
+    };
+    $('padOk').onclick = () => { document.body.classList.remove('editpad'); store.set('padPos', settings.padPos); };
+    $('padReset').onclick = () => { settings.padPos = {}; store.set('padPos', {}); placePads(); };
+  })();
+  function rangeOpt(id, key, fmt) {
+    const inp = $(id), out = $(id.replace('opt', 'out'));
+    inp.value = settings[key]; out.textContent = fmt(settings[key]);
+    inp.oninput = () => { settings[key] = +inp.value; out.textContent = fmt(settings[key]); store.set(key, settings[key]); layout(); };
+  }
+  rangeOpt('optPadSize', 'padSize', (v) => v + ' %');
+  rangeOpt('optPadA', 'padA', (v) => (100 - v) + ' %');
+  $('optOverlay').checked = settings.overlay;
+  $('optOverlay').onchange = (e) => { settings.overlay = e.target.checked; store.set('overlay', settings.overlay); layout(); };
 
   // ---------- overlay / sound / fullscreen ----------
   function hideOverlay() {
