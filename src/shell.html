@@ -313,6 +313,9 @@
 /*SATELLITE*/
 </script>
 <script>
+/*TOUCHMENU*/
+</script>
+<script>
 const JAR_B64 = "/*JAR*/";
 const LANG_PACKS = /*LANGS*/;
 const PREFIX = 'gangstar:';
@@ -411,6 +414,24 @@ const PREFIX = 'gangstar:';
     el.addEventListener('pointermove', (e) => { if (e.pointerId === id) move(e); });
     const end = (e) => { if (e.pointerId !== id) return; id = null; knob.style.transform = ''; joyDigit = null; lastDigit = null; updateDir(); };
     el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
+  })();
+
+  // ---------- touch on the game screen: the game's menus ----------
+  (function screenTouch() {
+    const el = $('screen');
+    let start = null;
+    el.addEventListener('pointerdown', (e) => { start = { y: e.clientY, id: e.pointerId }; });
+    el.addEventListener('pointercancel', () => { start = null; });
+    el.addEventListener('pointerup', (e) => {
+      if (!start || e.pointerId !== start.id) return;
+      const s0 = start; start = null;
+      const D = VM.classes.get('d');
+      if (!D || D.sv.T === 7) return;                     // gameplay: the on-screen controls do that
+      const r = el.getBoundingClientRect();
+      const kx = MIDP.SW / r.width, ky = MIDP.SH / r.height;
+      hideOverlay();
+      TouchMenu.tap((e.clientX - r.left) * kx, (e.clientY - r.top) * ky, press, (e.clientY - s0.y) * ky);
+    });
   })();
 
   // ---------- keyboard ----------
@@ -773,7 +794,7 @@ const PREFIX = 'gangstar:';
   }
   function start(files, langs) {
     if (langs[settings.lang]) files['o'] = langs[settings.lang];
-    MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: () => { Wide.apply(SCREEN_W); Gangstar.beforeStart(); Satellite.beforeStart(); Gangstar.setSpeed(+settings.speed); } });
+    MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: () => { Wide.apply(SCREEN_W); Gangstar.beforeStart(); Satellite.beforeStart(); TouchMenu.beforeStart(); Gangstar.setSpeed(+settings.speed); } });
   }
   function pickData() {
     return new Promise((resolve) => {
