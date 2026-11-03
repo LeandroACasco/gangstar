@@ -22,7 +22,7 @@ const Gangstar = (() => {
   let D = null, userClasses = [];
   let prev = null, cur = null, tickAt = 0, tickLen = 100, lastAlpha = -1;
   let active = false, inInterp = false, drawSnap = null;
-  const opts = { smooth: true, speed: 1, quick: true };
+  const opts = { smooth: true, speed: 1, quick: true, smoothTurn: true };
 
   // ----- game clock and tick pacing -----
   // The game's main loop (d.run) runs one tick, then spins on Thread.yield() until 100 ms of
@@ -103,7 +103,7 @@ const Gangstar = (() => {
   const driving = () => !!(D && D.sv.T === 7 && !D.sv.cA && D.sv.cH === 1);
   const hooks = { onDrivingChange: null };
 
-  const stats = { renders: 0, ticks: 0, renderMs: 0, realShown: 0 };
+  const stats = { renders: 0, ticks: 0, renderMs: 0, realShown: 0, turned: 0, lastTurn: 0 };
 
   function beforeStart() {
     for (const n of ['a', 'b', 'c', 'd']) {
@@ -122,6 +122,24 @@ const Gangstar = (() => {
     });
     const orig = (name) => Object.assign({}, D.methods.get(name), { fn: null });
     const bu = orig('bu()V'), bv = orig('bv()V');
+    // smooth turning: a car has 16 pre-drawn directions (b.i[1], 22.5° apart, counter-clockwise) and turns
+    // one step per tick, so with smooth movement the jump from one picture to the next showed. In the
+    // in-between frames the car (b.g draws an actor) is drawn turned by the part of the step still to come.
+    const turning = (origG, self) => {
+      const t = turnAngle(self);
+      if (!t) return origG(self);
+      // where the car lands on the screen: draw it once without drawing (this frame's state is thrown away
+      // afterwards anyway), then for real, turned around the centre of that
+      const box = MIDP.state.measure = [];
+      try { origG(self); } finally { MIDP.state.measure = null; }
+      if (!box.length) return origG(self);
+      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+      for (let i = 0; i < box.length; i += 4) { x1 = Math.min(x1, box[i]); y1 = Math.min(y1, box[i + 1]); x2 = Math.max(x2, box[i + 2]); y2 = Math.max(y2, box[i + 3]); }
+      stats.turned++; stats.lastTurn = t;
+      MIDP.state.rotate = { x: (x1 + x2) / 2, y: (y1 + y2) / 2, a: t };
+      try { return origG(self); } finally { MIDP.state.rotate = null; }
+    };
+    VM.hookMethod('b', 'g()V', turning);
     VM.hookMethod('b', 'B()V', (origB) => {
       if (inInterp) { VM.invokeSync(bu, []); VM.invokeSync(bv, []); }
       return origB();
@@ -131,7 +149,7 @@ const Gangstar = (() => {
 
   function snapshotPositions() {
     const m = new Map();
-    for (const o of actors) m.set(o, [o['b.a'], o['b.b']]);
+    for (const o of actors) m.set(o, [o['b.a'], o['b.b'], o['b.i'] ? o['b.i'][1] : 0]);
     return { actors: m, cam: [D.sv.fU, D.sv.fV] };
   }
 
@@ -179,6 +197,16 @@ const Gangstar = (() => {
   }
 
   const LEAD = 0.5;
+  let drawAlpha = 1;
+  function turnAngle(o) {
+    if (!inInterp || !opts.smoothTurn || !cur || !prev) return 0;
+    const c = cur.actors.get(o), p = prev.actors.get(o);
+    if (!c || !p) return 0;
+    let d = (c[2] - p[2]) & 15; if (d > 8) d -= 16;
+    if (d !== 1 && d !== -1) return 0;           // only one-step turns: cars (people turn in 45° steps)
+    const t = Math.min(drawAlpha, 1.25);
+    return (1 - t) * d * Math.PI / 8;            // canvas angles turn clockwise, directions counter-clockwise
+  }
   const lerp = (a, b, t, max) => (Math.abs(b - a) > max ? b : Math.round(a + (b - a) * t));
 
   // the live state only changes when Java code runs (VM.epoch), so it is captured once per change, not per frame
@@ -188,6 +216,7 @@ const Gangstar = (() => {
     const saved = liveSnap;
     try {
       restoreState(cur.state);
+      drawAlpha = alpha;
       for (const [o, c] of cur.actors) {
         const p = prev.actors.get(o);
         if (!p) continue;

@@ -261,6 +261,7 @@
     <h3>Imagen</h3>
     <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave (cuadros intermedios a la frecuencia de tu pantalla)</label>
     <label class="chk"><input type="checkbox" id="optQuick"> Respuesta rápida (el juego reacciona apenas tocás y la imagen va medio cuadro adelante; menos retraso al moverte)</label>
+    <label class="chk"><input type="checkbox" id="optTurn"> Giro suave de los autos (entre los 16 dibujos del auto, lo va girando de a poco)</label>
     <label class="chk"><input type="checkbox" id="optVib"> Vibración</label>
     <label class="chk"><input type="checkbox" id="optSatMap"> Mapa satelital (el mapa de la pausa dibujado con la ciudad real; también se cambia con el botón 🛰 en el mapa)</label>
     <label class="chk"><input type="checkbox" id="optSatRadar"> Radar satelital (las calles alrededor tuyo dentro del radar)</label>
@@ -384,6 +385,7 @@ const PREFIX = 'gangstar:';
     padA: store.get('padA', 60),
     padPos: store.get('padPos', {}),
     quick: store.get('quick', true),
+    smoothTurn: store.get('smoothTurn', true),
     satRadar: store.get('satRadar', true),
     sound: store.get('sound', true),
     screen: store.get('screen', '240'),   // width the game is told about: 240 = original, wider shows more city
@@ -652,6 +654,8 @@ const PREFIX = 'gangstar:';
   $('optSmooth').onchange = (e) => { settings.smooth = e.target.checked; store.set('smooth', settings.smooth); Gangstar.opts.smooth = settings.smooth; };
   $('optQuick').checked = settings.quick; Gangstar.opts.quick = settings.quick;
   $('optQuick').onchange = (e) => { settings.quick = e.target.checked; store.set('quick', settings.quick); Gangstar.opts.quick = settings.quick; };
+  $('optTurn').checked = settings.smoothTurn; Gangstar.opts.smoothTurn = settings.smoothTurn;
+  $('optTurn').onchange = (e) => { settings.smoothTurn = e.target.checked; store.set('smoothTurn', settings.smoothTurn); Gangstar.opts.smoothTurn = settings.smoothTurn; };
   $('optVib').checked = settings.vib;
   $('optVib').onchange = (e) => { settings.vib = e.target.checked; MIDP.vibration = settings.vib; store.set('vib', settings.vib); };
   // ---------- satellite view ----------

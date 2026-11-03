@@ -544,13 +544,22 @@ const MIDP = (() => {
     const dw = tr >= 4 ? h : w, dh = tr >= 4 ? w : h;
     [x, y] = anchorImg(x + g.tx, y + g.ty, dw, dh, anchor);
     touch(g, x, y, dw, dh);
-    const ctx = g.ctx;
-    if (tr === 0) { ctx.drawImage(img.canvas, sx, sy, w, h, x, y, w, h); return; }
+    if (state.measure) { state.measure.push(x, y, x + dw, y + dh); return; }
+    const ctx = g.ctx, r = state.rotate;
+    if (tr === 0 && !r) { ctx.drawImage(img.canvas, sx, sy, w, h, x, y, w, h); return; }
+    if (r) rotateAbout(ctx, r); else ctx.setTransform(1, 0, 0, 1, 0, 0);
     const m = TR[tr] || TR[0];
     const e = m[4] === 'w' ? w : m[4] === 'h' ? h : 0, f = m[5] === 'w' ? w : m[5] === 'h' ? h : 0;
-    ctx.setTransform(m[0], m[1], m[2], m[3], x + e, y + f);
+    ctx.transform(m[0], m[1], m[2], m[3], x + e, y + f);
     ctx.drawImage(img.canvas, sx, sy, w, h, 0, 0, w, h);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  // state.rotate = { x, y, a }: image drawing turns by a radians around (x, y) (image coordinates);
+  // state.measure = []: image drawing only records where it would land (x1, y1, x2, y2, ...).
+  // Used by the port to turn a car smoothly between two of its 16 pre-drawn directions.
+  function rotateAbout(ctx, r) {
+    const px = r.x, py = r.y, c = Math.cos(r.a), sn = Math.sin(r.a);
+    ctx.setTransform(c, sn, -sn, c, px - c * px + sn * py, py - sn * px - c * py);
   }
   const rgbCache = new Map();
   function drawString(g, s, x, y, a) {
@@ -634,7 +643,9 @@ const MIDP = (() => {
         if (img === null) NPE();
         if (!applyClip(g)) return;
         const [dx, dy] = anchorImg(x + g.tx, y + g.ty, img.w, img.h, a);
+        if (state.measure) { state.measure.push(dx, dy, dx + img.w, dy + img.h); return; }
         touch(g, dx, dy, img.w, img.h);
+        if (state.rotate) { rotateAbout(g.ctx, state.rotate); g.ctx.drawImage(img.canvas, dx, dy); g.ctx.setTransform(1, 0, 0, 1, 0, 0); return; }
         g.ctx.drawImage(img.canvas, dx, dy);
       }),
       'drawRegion(Ljavax/microedition/lcdui/Image;IIIIIIII)V': G((g, img, sx, sy, w, h, tr, x, y, a) => {
@@ -643,6 +654,7 @@ const MIDP = (() => {
       }),
       'drawRGB([IIIIIIIZ)V': G((g, rgb, off, scan, x, y, w, h, alpha) => {
         if (w <= 0 || h <= 0 || !applyClip(g)) return;
+        if (state.measure) { state.measure.push(x + g.tx, y + g.ty, x + g.tx + w, y + g.ty + h); return; }
         // Sprites are decoded to ARGB every frame; identical pixel blocks repeat, so cache them as canvases.
         let h1 = 0x811c9dc5 ^ w, h2 = (h * 2654435761) | (alpha ? 1 : 0);
         for (let yy = 0; yy < h; yy++) {
@@ -659,6 +671,7 @@ const MIDP = (() => {
           if (rgbCache.size > 4000) rgbCache.delete(rgbCache.keys().next().value);
         }
         touch(g, x + g.tx, y + g.ty, w, h);
+        if (state.rotate) { rotateAbout(g.ctx, state.rotate); g.ctx.drawImage(c, x + g.tx, y + g.ty); g.ctx.setTransform(1, 0, 0, 1, 0, 0); return; }
         g.ctx.drawImage(c, x + g.tx, y + g.ty);
       }),
       'copyArea(IIIIIII)V': G((g, sx, sy, w, h, dx, dy, a) => {
