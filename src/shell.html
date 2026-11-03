@@ -215,6 +215,7 @@
     <div class="seg" id="segSpeed"><button data-v="1">Normal</button><button data-v="1.25">Rápida ×1,25</button><button data-v="1.5">Muy rápida ×1,5</button></div>
     <h3>Imagen</h3>
     <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave (cuadros intermedios a la frecuencia de tu pantalla)</label>
+    <label class="chk"><input type="checkbox" id="optQuick"> Respuesta rápida (el juego reacciona apenas tocás y la imagen va medio cuadro adelante; menos retraso al moverte)</label>
     <label class="chk"><input type="checkbox" id="optVib"> Vibración</label>
     <label class="chk"><input type="checkbox" id="optSatMap"> Mapa satelital (el mapa de la pausa dibujado con la ciudad real; también se cambia con el botón 🛰 en el mapa)</label>
     <label class="chk"><input type="checkbox" id="optSatRadar"> Radar satelital (las calles alrededor tuyo dentro del radar)</label>
@@ -330,6 +331,7 @@ const PREFIX = 'gangstar:';
     fps: store.get('fps', false),
     satMap: store.get('satMap', true),
     autosave: store.get('autosave', true),
+    quick: store.get('quick', true),
     satRadar: store.get('satRadar', true),
     sound: store.get('sound', true),
     screen: store.get('screen', '240'),   // width the game is told about: 240 = original, wider shows more city
@@ -345,7 +347,7 @@ const PREFIX = 'gangstar:';
   $('screen').width = SCREEN_W;
 
   // ---------- key output ----------
-  function press(code, down) { SoundEngine.unlock(); MIDP.key(code, down); }
+  function press(code, down) { SoundEngine.unlock(); MIDP.key(code, down); if (down) Gangstar.nudge(); }
 
   // Direction combiner. Keyboard, joystick and gamepad all end up as one of 8 directions (a digit 1..9).
   // On foot the game wants exactly that digit (two directions together = the diagonal key). Driving, it
@@ -510,6 +512,8 @@ const PREFIX = 'gangstar:';
   seg('segSpeed', 'speed', () => Gangstar.setSpeed(+settings.speed));
   $('optSmooth').checked = settings.smooth;
   $('optSmooth').onchange = (e) => { settings.smooth = e.target.checked; store.set('smooth', settings.smooth); Gangstar.opts.smooth = settings.smooth; };
+  $('optQuick').checked = settings.quick; Gangstar.opts.quick = settings.quick;
+  $('optQuick').onchange = (e) => { settings.quick = e.target.checked; store.set('quick', settings.quick); Gangstar.opts.quick = settings.quick; };
   $('optVib').checked = settings.vib;
   $('optVib').onchange = (e) => { settings.vib = e.target.checked; MIDP.vibration = settings.vib; store.set('vib', settings.vib); };
   // ---------- satellite view ----------

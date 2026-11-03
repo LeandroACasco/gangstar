@@ -22,7 +22,7 @@ const Gangstar = (() => {
   let D = null, userClasses = [];
   let prev = null, cur = null, tickAt = 0, tickLen = 100, lastAlpha = -1;
   let active = false, inInterp = false, drawSnap = null;
-  const opts = { smooth: true, speed: 1 };
+  const opts = { smooth: true, speed: 1, quick: true };
 
   // ----- game clock and tick pacing -----
   // The game's main loop (d.run) runs one tick, then spins on Thread.yield() until 100 ms of
@@ -42,12 +42,35 @@ const Gangstar = (() => {
     if (f.ipc === 64) return undefined;          // unconditional yield at the top of the loop: the tick is next
     if (f.ipc === 101) {                          // inside the wait for the next tick
       const due = Number(D.sv.at) + 100;
+      if (nudged) {                               // a key went down: start the next tick now (see nudge)
+        nudged = false;
+        const g = gameNow();
+        if (due > g) clockGame += due - g;
+        return undefined;
+      }
       const left = (due - gameNow()) / opts.speed;  // real ms
       if (left > 3) { t.sleepFor = left - 2; return YIELD; } // timers wake late: aim a bit early...
       while (gameNow() < due) { /* ...and wait out the last couple of ms here */ }
       return undefined;
     }
     return YIELD;
+  }
+  // ----- quicker response -----
+  // Two things made the controls feel late, each worth up to a tick (100 ms):
+  //  * a key pressed just after a tick waited for the next one. When a key goes down, the wait for the
+  //    next tick ends now: the clock the game sees jumps ahead by the rest of the wait. At most once every
+  //    300 ms, so mashing a button cannot speed the game up.
+  //  * the in-between frames went from the previous tick to the last one, so the picture was a whole tick
+  //    behind the game. They now run half a tick ahead (opts.lead), continuing the last movement for that
+  //    half; a sudden stop shows at most half a step of overshoot. The camera stays within one tile of
+  //    the real one and the map tiles that this uncovers are drawn into the spare slot of the map buffer.
+  let nudged = false, lastNudge = 0;
+  function nudge() {
+    if (!opts.quick || !D || D.sv.T !== 7 || nudged) return;
+    const now = performance.now();
+    if (now - lastNudge < 300) return;
+    lastNudge = now; nudged = true;
+    for (const t of VM.threads) if (t.name === 'java-thread' && !t.done) t.sleepUntil = 0;
   }
   const cheats = { health: false, ammo: false, noPolice: false };
 
@@ -118,6 +141,7 @@ const Gangstar = (() => {
     stats.ticks++;
     if (tickAt) tickLen = Math.min(200, Math.max(60, tickLen * 0.8 + (now - tickAt) * 0.2));
     tickAt = now;
+    edgeDrawn = new Set();                      // the real frame may have reused the spare slot
     applyCheats();
     const dr = driving();
     if (dr !== wasDriving) { wasDriving = dr; if (hooks.onDrivingChange) hooks.onDrivingChange(dr); }
@@ -154,6 +178,7 @@ const Gangstar = (() => {
     randoms.forEach((r, i) => { if (i < s.seeds.length) r.seed = s.seeds[i]; });
   }
 
+  const LEAD = 0.5;
   const lerp = (a, b, t, max) => (Math.abs(b - a) > max ? b : Math.round(a + (b - a) * t));
 
   // the live state only changes when Java code runs (VM.epoch), so it is captured once per change, not per frame
@@ -169,8 +194,10 @@ const Gangstar = (() => {
         o['b.a'] = lerp(p[0], c[0], alpha, 72 << 8);
         o['b.b'] = lerp(p[1], c[1], alpha, 72 << 8);
       }
-      D.sv.fU = lerp(prev.cam[0], cur.cam[0], alpha, 96);
-      D.sv.fV = lerp(prev.cam[1], cur.cam[1], alpha, 96);
+      const near = (v, c) => Math.max(c - 23, Math.min(c + 23, v));   // within a tile of the real camera
+      D.sv.fU = near(lerp(prev.cam[0], cur.cam[0], alpha, 96), cur.cam[0]);
+      D.sv.fV = near(lerp(prev.cam[1], cur.cam[1], alpha, 96), cur.cam[1]);
+      edgeTiles();
       D.sv.bQ = 1;
       D.sv.am = MIDP.newGraphics(MIDP.state.backImage);
       inInterp = true;
@@ -186,6 +213,29 @@ const Gangstar = (() => {
     MIDP.present();
   }
 
+  // Map tiles visible from the in-between camera that the game has not drawn for the real one. The game
+  // keeps (screen width + 24) / 24 columns by 13 rows from tile (d.fG, d.fH) in a wrap-around buffer one
+  // column and one row larger (see Wide): the column just before or after that range, and the row just
+  // above or below, land in the spare slot and can be drawn there without touching the game's tiles.
+  let edgeDrawn = new Set();
+  function edgeTiles() {
+    const sv = D.sv;
+    if (sv.ee || !sv.ho || sv.fG < 0 || sv.fH < 0) return;
+    const cols = (MIDP.SW + 24) / 24, rows = 13, N = sv.ho.w / 24, R = sv.ho.h / 24;
+    if (N < cols + 1 || R < rows + 1) return;
+    const x0 = Math.floor(sv.fU / 24), x1 = Math.floor((sv.fU + MIDP.SW - 1) / 24);
+    const y0 = Math.floor(sv.fV / 24), y1 = Math.floor((sv.fV + 276 - 1) / 24);
+    const okX = (x) => x >= sv.fG - 1 && x <= sv.fG + cols, okY = (y) => y >= sv.fH - 1 && y <= sv.fH + rows;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if (x >= sv.fG && x < sv.fG + cols && y >= sv.fH && y < sv.fH + rows) continue;   // the game's own
+      if (!okX(x) || !okY(y)) continue;
+      const k = x + ',' + y;
+      if (edgeDrawn.has(k)) continue;
+      edgeDrawn.add(k);
+      VM.callSync('d', 'u(II)V', [x, y]);
+    }
+  }
+
   function gameThreadIdle() {
     for (const t of VM.threads) if (t.name === 'java-thread' && t.status !== 'yield' && t.status !== undefined) return false;
     return VM.events.length === 0;
@@ -195,7 +245,7 @@ const Gangstar = (() => {
     requestAnimationFrame(frame);
     if (!active || !cur || !prev || !VM.running) return;
     if (!gameThreadIdle()) return;
-    const alpha = Math.min(1, (now - tickAt) / tickLen);
+    const alpha = Math.min(1, (now - tickAt) / tickLen) + (opts.quick ? LEAD : 0);
     if (alpha === lastAlpha) return;
     lastAlpha = alpha;
     const t0 = performance.now();
@@ -217,5 +267,5 @@ const Gangstar = (() => {
     if (D) { D.sv.ho = null; D.sv.fL = -1; }
   }
 
-  return { beforeStart, adopt, opts, setSpeed, driving, hooks, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
+  return { beforeStart, adopt, opts, setSpeed, nudge, driving, hooks, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
 })();
