@@ -66,10 +66,29 @@
   .gb.car { background: #2c3340; } .gb.pause { background: #33333a; }
 
   /* ---- classic phone skin ---- */
-  body.skin-phone #center.portrait { background: linear-gradient(160deg, #3b3d44, #1f2025 45%, #2a2b31); border-radius: 34px;
-    padding: 18px 16px 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 14px 40px rgba(0,0,0,.6); }
-  body.skin-phone #center.portrait #screenWrap { box-shadow: 0 0 0 8px #0b0b0d, 0 0 0 9px #444650; border-radius: 4px; }
-  body.skin-phone #center.portrait .brand { display: block; }
+  /* phone skin: an original mid-2000s handset — brushed silver body, gloss-black screen bezel, keypad panel */
+  body.skin-phone #center.portrait { position: relative; border-radius: 44px 44px 36px 36px; padding: 30px 16px 18px;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 1px, rgba(0,0,0,.025) 1px 3px),
+      linear-gradient(165deg, #eceef1 0%, #c3c7cd 42%, #d7dade 70%, #b3b7be 100%);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.9), inset 0 -3px 6px rgba(0,0,0,.25), 0 0 0 1px #8e929a, 0 18px 46px rgba(0,0,0,.65); }
+  body.skin-phone #center.portrait::before { content: ''; position: absolute; top: 12px; left: 50%; width: 70px; height: 7px; margin-left: -35px;
+    border-radius: 4px; background: repeating-linear-gradient(90deg, #2b2d33 0 3px, #8c9098 3px 5px); box-shadow: inset 0 1px 2px rgba(0,0,0,.6); }
+  body.skin-phone #center.portrait::after { content: ''; position: absolute; top: 11px; right: 26%; width: 9px; height: 9px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #6d7fa8, #10131c 60%); box-shadow: 0 0 0 2px #9ea2aa; }
+  body.skin-phone #center.portrait #screenWrap { border-radius: 3px; box-shadow: 0 0 0 9px #0d0e11, 0 0 0 10px #4b4e55, 0 0 0 11px #e9ebee; }
+  body.skin-phone #center.portrait .brand { display: block; color: #50545c; text-shadow: 0 1px 0 rgba(255,255,255,.7); margin: -6px 0 -2px; }
+  body.skin-phone #center.portrait .below { background: linear-gradient(#2e3036, #1a1b1f); border-radius: 22px 22px 26px 26px; padding: 14px 12px 16px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.6); margin-top: 6px; }
+  body.skin-phone .pk { background: linear-gradient(#f7f8fa, #c8ccd2); color: #1c1e23; box-shadow: inset 0 1px 0 #fff, 0 2px 0 #6d7179, 0 3px 4px rgba(0,0,0,.4); }
+  body.skin-phone .pnum .k small { color: #5c6069; }
+  body.skin-phone .soft { color: #3a3d44; }
+  body.skin-phone .call.green { background: linear-gradient(#dff5e3, #9fd3a9); color: #1f7a33; }
+  body.skin-phone .call.red { background: linear-gradient(#f9e0dd, #e2a49d); color: #a52a1e; }
+  body.skin-phone .dpad { background: radial-gradient(circle, #f3f4f6 0 34%, #8d9199 35% 37%, #eef0f2 38%, #b4b8bf 72%, #8d9199 74%);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.9), 0 3px 0 #5e6168, 0 4px 6px rgba(0,0,0,.45); }
+  body.skin-phone .dpad .k { color: #3a3d44; }
+  body.skin-phone .dpad .ok { background: linear-gradient(#fdfdfe, #cfd2d8); color: #1c1e23; box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(0,0,0,.35); }
+  body.skin-phone .k.down { filter: brightness(.85); }
   .brand { display: none; font: 700 11px system-ui; letter-spacing: .3em; color: #8b8e98; margin: -4px 0 -6px; }
   .pnav { display: grid; grid-template-columns: calc(var(--u) * 1.15) calc(var(--u) * 2.2) calc(var(--u) * 1.15); align-items: center; gap: calc(var(--u) * .12); }
   .pnav .col { display: flex; flex-direction: column; gap: calc(var(--u) * .18); align-items: center; }
@@ -116,7 +135,35 @@
   kbd { background: var(--key); border-radius: 4px; padding: 1px 6px; font: 12px ui-monospace, monospace; }
   textarea { width: 100%; height: 110px; background: #0e0e10; color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: 11px ui-monospace, monospace; padding: 8px; user-select: text; -webkit-user-select: text; }
   label.chk { display: flex; gap: 8px; align-items: center; font-size: 14px; }
-  .slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  label.rng { display: grid; grid-template-columns: 7.5em 1fr 3em; gap: 8px; align-items: center; font-size: 14px; margin: 4px 0; }
+  label.rng input { width: 100%; accent-color: var(--accent); } label.rng output { color: var(--muted); font-size: 12px; text-align: right; }
+  /* landscape on wide screens: the picture fills the screen and the controls float over it */
+  .pad { position: fixed; z-index: 4; display: none; opacity: var(--padA, .6); touch-action: none; }
+  body.overlay .pad { display: block; }
+  #padL { left: calc(18px + env(safe-area-inset-left)); bottom: calc(12px + env(safe-area-inset-bottom)); }
+  #padR { right: calc(18px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); }
+  body.overlay #stage { padding: 0; gap: 0; }
+  body.overlay #screenWrap { border-radius: 0; }
+  body.overlay .gb:not(.fire) { background: rgba(38,38,46,.72); box-shadow: none; }
+  body.overlay .joy .base { background: radial-gradient(circle, rgba(36,36,42,.75) 0 55%, rgba(28,28,33,.75) 56%); }
+  body.overlay header { opacity: .55; left: 50%; right: auto; transform: translateX(-50%); }
+  body.editpad .pad { display: block; opacity: 1; outline: 2px dashed var(--accent); outline-offset: 6px; border-radius: 16px; cursor: move; }
+  body.editpad .pad * { pointer-events: none; }
+  #padDone { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 6; display: none; text-align: center;
+    background: rgba(20,20,26,.92); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; font-size: 13px; }
+  body.editpad #padDone { display: block; }
+  #padDone button { margin-top: 8px; border: none; border-radius: 9px; padding: 8px 14px; font: 600 13px system-ui; background: var(--accent); color: #111; cursor: pointer; }
+  #padDone button.sec { background: #34343c; color: var(--text); margin-left: 6px; }
+  .slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 520px) { .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  #resume { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); z-index: 3; width: min(92%, 340px);
+    background: rgba(20,20,26,.94); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; gap: 10px; align-items: center; }
+  #resume img { width: 64px; height: 85px; object-fit: cover; border-radius: 6px; image-rendering: pixelated; flex: none; }
+  #resume .t { flex: 1; min-width: 0; font-size: 13px; } #resume .t b { display: block; margin-bottom: 2px; }
+  #resume .t span { color: var(--muted); font-size: 12px; }
+  #resume .b { display: flex; flex-direction: column; gap: 6px; }
+  #resume button { border: none; border-radius: 9px; padding: 8px 12px; font: 600 13px system-ui; cursor: pointer; background: #34343c; color: var(--text); }
+  #resume button.go { background: var(--accent); color: #111; }
   .slot { min-width: 0; background: var(--key); border: 1px solid var(--line); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
   .slot .th { aspect-ratio: 3 / 4; background: #0c0c0e; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; overflow: hidden; }
   .slot .th img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
@@ -151,6 +198,8 @@
       <div id="screenWrap">
         <canvas id="screen" width="240" height="320"></canvas>
         <button id="satBtn" hidden>🛰 Satelital</button>
+        <div id="resume" hidden><img alt=""><div class="t"><b>¿Seguir donde estabas?</b><span></span></div>
+          <div class="b"><button class="go">Seguir</button><button class="no">Ahora no</button></div></div>
         <div id="overlay"><b>Tocá o hacé clic para empezar</b><span>(el navegador necesita un toque para activar el sonido)</span></div>
       </div>
       <div class="below" id="below"></div>
@@ -189,6 +238,9 @@
     <button class="k pk" data-k="42">*<small>&nbsp;</small></button><button class="k pk" data-k="48">0<small>␣</small></button><button class="k pk" data-k="35">#<small>&nbsp;</small></button>
   </div>
 </div>
+<div class="pad" id="padL"></div><div class="pad" id="padR"></div>
+<div id="padDone">Arrastrá el joystick y los botones adonde te queden cómodos.<br>
+  <button id="padOk">Listo ✔</button><button class="sec" id="padReset">Volver a la posición inicial</button></div>
 <div id="toast"></div>
 <div id="fps" hidden></div>
 
@@ -197,16 +249,21 @@
     <h2>Menú</h2>
     <h3>Controles táctiles</h3>
     <div class="seg" id="segCtl"><button data-v="game">Botones del juego</button><button data-v="phone">Celular clásico</button><button data-v="none">Ocultos</button></div>
+    <label class="chk"><input type="checkbox" id="optOverlay"> Acostado con pantalla ancha: la imagen ocupa toda la pantalla y los botones van encima</label>
+    <label class="rng">Tamaño botones <input type="range" id="optPadSize" min="70" max="150" step="5"><output id="outPadSize"></output></label>
+    <label class="rng">Transparencia <input type="range" id="optPadA" min="20" max="100" step="5"><output id="outPadA"></output></label>
+    <div class="row"><button class="btn" id="padEdit">🎮 Acomodar los botones</button></div>
     <h3>Idioma del juego</h3>
     <div class="seg" id="segLang"><button data-v="es">Español</button><button data-v="en">English</button></div>
     <p>Cambiar el idioma reinicia el juego (la partida guardada se mantiene).</p>
     <h3>Pantalla</h3>
-    <div class="seg" id="segScreen"><button data-v="240">Original</button><button data-v="384">Ancha</button><button data-v="432">Panorámica</button><button data-v="576">Cine 16:9</button></div>
-    <p>Las pantallas más anchas muestran más ciudad a los costados. Cambiarla reinicia el juego; los guardados rápidos (ranuras) solo cargan en la pantalla en que se hicieron, la partida normal sí se mantiene.</p>
+    <div class="seg" id="segScreen"><button data-v="240">Original</button><button data-v="384">Ancha</button><button data-v="432">Panorámica</button><button data-v="576">Cine 16:9</button><button data-v="auto">Automática</button></div>
+    <p>Automática usa el ancho que llena la pantalla de este dispositivo acostado (por ejemplo 696 en un celular 19,5:9). Las pantallas más anchas muestran más ciudad a los costados. Cambiarla reinicia el juego; los guardados rápidos (ranuras) solo cargan en la pantalla en que se hicieron, la partida normal sí se mantiene.</p>
     <h3>Velocidad del juego</h3>
     <div class="seg" id="segSpeed"><button data-v="1">Normal</button><button data-v="1.25">Rápida ×1,25</button><button data-v="1.5">Muy rápida ×1,5</button></div>
     <h3>Imagen</h3>
     <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave (cuadros intermedios a la frecuencia de tu pantalla)</label>
+    <label class="chk"><input type="checkbox" id="optQuick"> Respuesta rápida (el juego reacciona apenas tocás y la imagen va medio cuadro adelante; menos retraso al moverte)</label>
     <label class="chk"><input type="checkbox" id="optVib"> Vibración</label>
     <label class="chk"><input type="checkbox" id="optSatMap"> Mapa satelital (el mapa de la pausa dibujado con la ciudad real; también se cambia con el botón 🛰 en el mapa)</label>
     <label class="chk"><input type="checkbox" id="optSatRadar"> Radar satelital (las calles alrededor tuyo dentro del radar)</label>
@@ -219,6 +276,7 @@
       <button class="btn" id="chMoney" style="flex:none;text-align:center">💵 +$10.000</button>
     </div>
     <h3>Partida</h3>
+    <label class="chk"><input type="checkbox" id="optAuto"> Guardado automático (cada 2 minutos de juego y al salir de la app; al volver a abrir te ofrece seguir ahí)</label>
     <p>La partida se guarda en el navegador de este dispositivo. Para seguir en otro (PC ↔ teléfono), exportala acá y cargala allá.</p>
     <div class="row">
       <button class="btn" id="expFile">💾 Guardar partida en archivo</button>
@@ -2524,6 +2582,15 @@ const Wide = (() => {
     }
     function blit(img, ctx) {
       const src = img.canvas;
+      const T = VM.classes.get('d').sv.T;
+      if (T === 6) {                                 // level loading ("Noticias"): drawn in the left 240 px
+        const dx = (W - 240) >> 1, split = 298;      // text ends at row 296; the progress bar (rows 300+) runs the whole width
+        ctx.drawImage(src, 0, 0, 240, split, dx, 0, 240, split);
+        ctx.drawImage(src, 0, 0, 1, split, 0, 0, dx, split);                        // sky and city carry on
+        ctx.drawImage(src, 239, 0, 1, split, dx + 240, 0, W - dx - 240, split);     // to the edges
+        ctx.drawImage(src, 0, split, W, 320 - split, 0, split, W, 320 - split);
+        return;
+      }
       if (Narrow.on) {                               // a menu drawn in the middle: black bands on the sides
         const dx = Narrow.dx;
         ctx.fillStyle = '#000'; ctx.fillRect(0, 0, dx, 320); ctx.fillRect(dx + 240, 0, W - dx - 240, 320);
@@ -2574,7 +2641,7 @@ const Gangstar = (() => {
   let D = null, userClasses = [];
   let prev = null, cur = null, tickAt = 0, tickLen = 100, lastAlpha = -1;
   let active = false, inInterp = false, drawSnap = null;
-  const opts = { smooth: true, speed: 1 };
+  const opts = { smooth: true, speed: 1, quick: true };
 
   // ----- game clock and tick pacing -----
   // The game's main loop (d.run) runs one tick, then spins on Thread.yield() until 100 ms of
@@ -2594,12 +2661,35 @@ const Gangstar = (() => {
     if (f.ipc === 64) return undefined;          // unconditional yield at the top of the loop: the tick is next
     if (f.ipc === 101) {                          // inside the wait for the next tick
       const due = Number(D.sv.at) + 100;
+      if (nudged) {                               // a key went down: start the next tick now (see nudge)
+        nudged = false;
+        const g = gameNow();
+        if (due > g) clockGame += due - g;
+        return undefined;
+      }
       const left = (due - gameNow()) / opts.speed;  // real ms
       if (left > 3) { t.sleepFor = left - 2; return YIELD; } // timers wake late: aim a bit early...
       while (gameNow() < due) { /* ...and wait out the last couple of ms here */ }
       return undefined;
     }
     return YIELD;
+  }
+  // ----- quicker response -----
+  // Two things made the controls feel late, each worth up to a tick (100 ms):
+  //  * a key pressed just after a tick waited for the next one. When a key goes down, the wait for the
+  //    next tick ends now: the clock the game sees jumps ahead by the rest of the wait. At most once every
+  //    300 ms, so mashing a button cannot speed the game up.
+  //  * the in-between frames went from the previous tick to the last one, so the picture was a whole tick
+  //    behind the game. They now run half a tick ahead (opts.lead), continuing the last movement for that
+  //    half; a sudden stop shows at most half a step of overshoot. The camera stays within one tile of
+  //    the real one and the map tiles that this uncovers are drawn into the spare slot of the map buffer.
+  let nudged = false, lastNudge = 0;
+  function nudge() {
+    if (!opts.quick || !D || D.sv.T !== 7 || nudged) return;
+    const now = performance.now();
+    if (now - lastNudge < 300) return;
+    lastNudge = now; nudged = true;
+    for (const t of VM.threads) if (t.name === 'java-thread' && !t.done) t.sleepUntil = 0;
   }
   const cheats = { health: false, ammo: false, noPolice: false };
 
@@ -2670,6 +2760,7 @@ const Gangstar = (() => {
     stats.ticks++;
     if (tickAt) tickLen = Math.min(200, Math.max(60, tickLen * 0.8 + (now - tickAt) * 0.2));
     tickAt = now;
+    edgeDrawn = new Set();                      // the real frame may have reused the spare slot
     applyCheats();
     const dr = driving();
     if (dr !== wasDriving) { wasDriving = dr; if (hooks.onDrivingChange) hooks.onDrivingChange(dr); }
@@ -2706,6 +2797,7 @@ const Gangstar = (() => {
     randoms.forEach((r, i) => { if (i < s.seeds.length) r.seed = s.seeds[i]; });
   }
 
+  const LEAD = 0.5;
   const lerp = (a, b, t, max) => (Math.abs(b - a) > max ? b : Math.round(a + (b - a) * t));
 
   // the live state only changes when Java code runs (VM.epoch), so it is captured once per change, not per frame
@@ -2721,8 +2813,10 @@ const Gangstar = (() => {
         o['b.a'] = lerp(p[0], c[0], alpha, 72 << 8);
         o['b.b'] = lerp(p[1], c[1], alpha, 72 << 8);
       }
-      D.sv.fU = lerp(prev.cam[0], cur.cam[0], alpha, 96);
-      D.sv.fV = lerp(prev.cam[1], cur.cam[1], alpha, 96);
+      const near = (v, c) => Math.max(c - 23, Math.min(c + 23, v));   // within a tile of the real camera
+      D.sv.fU = near(lerp(prev.cam[0], cur.cam[0], alpha, 96), cur.cam[0]);
+      D.sv.fV = near(lerp(prev.cam[1], cur.cam[1], alpha, 96), cur.cam[1]);
+      edgeTiles();
       D.sv.bQ = 1;
       D.sv.am = MIDP.newGraphics(MIDP.state.backImage);
       inInterp = true;
@@ -2738,6 +2832,29 @@ const Gangstar = (() => {
     MIDP.present();
   }
 
+  // Map tiles visible from the in-between camera that the game has not drawn for the real one. The game
+  // keeps (screen width + 24) / 24 columns by 13 rows from tile (d.fG, d.fH) in a wrap-around buffer one
+  // column and one row larger (see Wide): the column just before or after that range, and the row just
+  // above or below, land in the spare slot and can be drawn there without touching the game's tiles.
+  let edgeDrawn = new Set();
+  function edgeTiles() {
+    const sv = D.sv;
+    if (sv.ee || !sv.ho || sv.fG < 0 || sv.fH < 0) return;
+    const cols = (MIDP.SW + 24) / 24, rows = 13, N = sv.ho.w / 24, R = sv.ho.h / 24;
+    if (N < cols + 1 || R < rows + 1) return;
+    const x0 = Math.floor(sv.fU / 24), x1 = Math.floor((sv.fU + MIDP.SW - 1) / 24);
+    const y0 = Math.floor(sv.fV / 24), y1 = Math.floor((sv.fV + 276 - 1) / 24);
+    const okX = (x) => x >= sv.fG - 1 && x <= sv.fG + cols, okY = (y) => y >= sv.fH - 1 && y <= sv.fH + rows;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if (x >= sv.fG && x < sv.fG + cols && y >= sv.fH && y < sv.fH + rows) continue;   // the game's own
+      if (!okX(x) || !okY(y)) continue;
+      const k = x + ',' + y;
+      if (edgeDrawn.has(k)) continue;
+      edgeDrawn.add(k);
+      VM.callSync('d', 'u(II)V', [x, y]);
+    }
+  }
+
   function gameThreadIdle() {
     for (const t of VM.threads) if (t.name === 'java-thread' && t.status !== 'yield' && t.status !== undefined) return false;
     return VM.events.length === 0;
@@ -2747,7 +2864,7 @@ const Gangstar = (() => {
     requestAnimationFrame(frame);
     if (!active || !cur || !prev || !VM.running) return;
     if (!gameThreadIdle()) return;
-    const alpha = Math.min(1, (now - tickAt) / tickLen);
+    const alpha = Math.min(1, (now - tickAt) / tickLen) + (opts.quick ? LEAD : 0);
     if (alpha === lastAlpha) return;
     lastAlpha = alpha;
     const t0 = performance.now();
@@ -2769,7 +2886,7 @@ const Gangstar = (() => {
     if (D) { D.sv.ho = null; D.sv.fL = -1; }
   }
 
-  return { beforeStart, adopt, opts, setSpeed, driving, hooks, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
+  return { beforeStart, adopt, opts, setSpeed, nudge, driving, hooks, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
 })();
 
 </script>
@@ -3005,7 +3122,7 @@ const SaveState = (() => {
   async function saveSlot(slot, lang) {
     const data = capture();
     const blob = await pack(data);
-    const rec = { slot, date: Date.now(), thumb: thumbnail(), blob, lang, size: blob.size };
+    const rec = { slot, date: Date.now(), thumb: thumbnail(), blob, lang, size: blob.size, w: MIDP.SW };
     await idb('readwrite', (s) => s.put(rec, slot));
     return rec;
   }
@@ -3018,7 +3135,7 @@ const SaveState = (() => {
   async function listSlots() {
     const all = await idb('readonly', (s) => s.getAll());
     const keys = await idb('readonly', (s) => s.getAllKeys());
-    const out = {}; (keys || []).forEach((k, i) => { const r = all[i]; out[k] = { date: r.date, thumb: r.thumb, size: r.size, lang: r.lang }; });
+    const out = {}; (keys || []).forEach((k, i) => { const r = all[i]; out[k] = { date: r.date, thumb: r.thumb, size: r.size, lang: r.lang, w: r.w }; });
     return out;
   }
   async function deleteSlot(slot) { await idb('readwrite', (s) => s.delete(slot)); }
@@ -3188,6 +3305,84 @@ const Satellite = (() => {
 
 </script>
 <script>
+// Touch for the game's own menus (title, main menu, options, pause, help...).
+//
+// The menus are drawn as lines of text (class a, a(Graphics, String, x, y, anchor, ...)) and the highlighted
+// line is the index d.Z, moved by the up/down keys. While a menu is on screen every text line drawn is
+// remembered with its position on the screen; a tap on a line moves the selection there (pressing up or
+// down and watching d.Z, so disabled entries the game skips are handled by the game itself) and confirms.
+// A tap on the bottom corners is the soft key below it (ELEGIR / ATRÁS), a vertical swipe scrolls
+// (up/down keys), and a tap anywhere else is OK. In gameplay the on-screen controls are used instead.
+'use strict';
+
+const TouchMenu = (() => {
+  let D = null, lines = [], frameLines = [], frameNo = -1, busy = false;
+  const TOP = 16, BOTTOM = 32, VCENTER = 2;
+
+  function beforeStart() {
+    D = VM.classes.get('d');
+    // every text call ends in this one (x, y, anchor, then wrap width and flags)
+    VM.hookMethod('a', 'a(Ljavax/microedition/lcdui/Graphics;Ljava/lang/String;IIIIIIZZ)I', (orig, self, g, str, x, y, anchor, ...rest) => {
+      if (D.sv.T !== 7 && str && str.s) {
+        const f = MIDP.state.frames || 0;
+        if (f !== frameNo) { if (frameLines.length) lines = frameLines; frameLines = []; frameNo = f; }
+        const gg = g.g, h = 14;
+        const top = anchor & BOTTOM ? y - h : anchor & VCENTER ? y - h / 2 : y;
+        frameLines.push({ s: str.s, x: x + gg.tx, y: top + gg.ty, h, anchor });
+      }
+      return orig(self, g, str, x, y, anchor, ...rest);
+    });
+  }
+  const current = () => (lines.length ? lines : frameLines);   // the last complete frame
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // the menu entries: lines between the title and the soft key labels, in drawing order
+  function entries() {
+    const all = current().filter((l, i, a) => a.findIndex((o) => o.s === l.s && o.y === l.y) === i);
+    return all.filter((l) => l.y > 24 && l.y + l.h < 302);
+  }
+
+  async function select(target, press) {
+    // move the highlight (d.Z) to the tapped entry, then confirm
+    for (let i = 0; i < 12 && D.sv.Z !== target; i++) {
+      const before = D.sv.Z;
+      press(D.sv.Z < target ? 56 : 50, true); await sleep(60); press(D.sv.Z < target ? 56 : 50, false);
+      for (let w = 0; w < 10 && D.sv.Z === before; w++) await sleep(30);
+      if (D.sv.Z === before) break;              // the game did not move: not a list we understand
+    }
+    if (D.sv.Z === target) { press(53, true); await sleep(80); press(53, false); return true; }
+    return false;
+  }
+
+  // x, y: tap in game screen pixels; dy: vertical swipe (px), press(code, down)
+  async function tap(x, y, press, dy = 0) {
+    if (!D || busy) return;
+    busy = true;
+    try {
+      const W = MIDP.SW;
+      if (Math.abs(dy) > 24) {                   // swipe: scroll the list / text
+        const code = dy < 0 ? 56 : 50, n = Math.min(6, Math.round(Math.abs(dy) / 22));
+        for (let i = 0; i < n; i++) { press(code, true); await sleep(50); press(code, false); await sleep(70); }
+        return;
+      }
+      if (y >= 296) {                            // soft keys
+        const side = x < W / 3 ? -6 : x > W * 2 / 3 ? -7 : 53;
+        press(side, true); await sleep(80); press(side, false);
+        return;
+      }
+      const list = entries();
+      const hit = list.findIndex((l) => y >= l.y - 4 && y <= l.y + l.h + 4);
+      if (hit >= 0 && list.length > 1 && typeof D.sv.Z === 'number' && D.sv.Z >= 0 && D.sv.Z < list.length + 2) {
+        if (await select(hit, press)) return;
+      }
+      press(53, true); await sleep(80); press(53, false);   // anything else: OK
+    } finally { busy = false; }
+  }
+  return { beforeStart, tap, entries };
+})();
+
+</script>
+<script>
 const JAR_B64 = "";
 const LANG_PACKS = {};
 const PREFIX = 'gangstar:';
@@ -3205,6 +3400,12 @@ const PREFIX = 'gangstar:';
     vib: store.get('vib', true),
     fps: store.get('fps', false),
     satMap: store.get('satMap', true),
+    autosave: store.get('autosave', true),
+    overlay: store.get('overlay', true),
+    padSize: store.get('padSize', 100),
+    padA: store.get('padA', 60),
+    padPos: store.get('padPos', {}),
+    quick: store.get('quick', true),
     satRadar: store.get('satRadar', true),
     sound: store.get('sound', true),
     screen: store.get('screen', '240'),   // width the game is told about: 240 = original, wider shows more city
@@ -3213,14 +3414,16 @@ const PREFIX = 'gangstar:';
   // (?w=NNN in the address overrides the setting, for testing)
   const SCREEN_W = (() => {
     const q = new URLSearchParams(location.search).get('w');
-    const w = +(q || settings.screen) || 240;
-    return Math.max(240, Math.min(576, Math.round(w / 24) * 24));  // multiple of 24: the map is built from 24 px tiles
+    // automatic: the width that fills this device held sideways (320 px tall)
+    const auto = () => 320 * Math.max(screen.width, screen.height) / Math.min(screen.width, screen.height);
+    const w = +(q || (settings.screen === 'auto' ? auto() : settings.screen)) || 240;
+    return Math.max(240, Math.min(720, Math.round(w / 24) * 24));  // multiple of 24: the map is built from 24 px tiles
   })();
   MIDP.setScreen(SCREEN_W, 320);
   $('screen').width = SCREEN_W;
 
   // ---------- key output ----------
-  function press(code, down) { SoundEngine.unlock(); MIDP.key(code, down); }
+  function press(code, down) { SoundEngine.unlock(); MIDP.key(code, down); if (down) Gangstar.nudge(); }
 
   // Direction combiner. Keyboard, joystick and gamepad all end up as one of 8 directions (a digit 1..9).
   // On foot the game wants exactly that digit (two directions together = the diagonal key). Driving, it
@@ -3284,6 +3487,24 @@ const PREFIX = 'gangstar:';
     el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
   })();
 
+  // ---------- touch on the game screen: the game's menus ----------
+  (function screenTouch() {
+    const el = $('screen');
+    let start = null;
+    el.addEventListener('pointerdown', (e) => { start = { y: e.clientY, id: e.pointerId }; });
+    el.addEventListener('pointercancel', () => { start = null; });
+    el.addEventListener('pointerup', (e) => {
+      if (!start || e.pointerId !== start.id) return;
+      const s0 = start; start = null;
+      const D = VM.classes.get('d');
+      if (!D || D.sv.T === 7) return;                     // gameplay: the on-screen controls do that
+      const r = el.getBoundingClientRect();
+      const kx = MIDP.SW / r.width, ky = MIDP.SH / r.height;
+      hideOverlay();
+      TouchMenu.tap((e.clientX - r.left) * kx, (e.clientY - r.top) * ky, press, (e.clientY - s0.y) * ky);
+    });
+  })();
+
   // ---------- keyboard ----------
   const keyCodes = {
     Space: 53, KeyJ: 53, Enter: -7, NumpadEnter: -7, Backspace: -7, Escape: -6, Tab: -6, KeyP: -6,
@@ -3325,6 +3546,23 @@ const PREFIX = 'gangstar:';
     for (const id of ['joy', 'gbtns', 'pnav', 'pnum']) park.appendChild($(id));
     let scale, u = 60;
     const a = mode === 'game' ? [$('joy'), $('gbtns')] : mode === 'phone' ? [$('pnav'), $('pnum')] : [];
+    const overlay = mode === 'game' && landscape && settings.overlay && MIDP.SW > 240;
+    document.body.classList.toggle('overlay', overlay);
+    if (overlay) {
+      // the picture fills the screen; the joystick and buttons float over its lower corners
+      const FW = stage.clientWidth, FH = stage.clientHeight;
+      scale = Math.min(FW / MIDP.SW, FH / 320);
+      u = Math.max(34, Math.min(84, FH / 4.4)) * settings.padSize / 100;
+      padBottom = Math.round(26 * scale) + 8;          // above the game's bottom bar (radar, health, weapon)
+      sideL.style.width = sideR.style.width = '0';
+      $('padL').appendChild(a[0]); $('padR').appendChild(a[1]);
+      below.style.display = 'none';
+      document.documentElement.style.setProperty('--u', u + 'px');
+      document.documentElement.style.setProperty('--padA', settings.padA / 100);
+      const sw = $('screenWrap'); sw.style.width = Math.round(MIDP.SW * scale) + 'px'; sw.style.height = Math.round(320 * scale) + 'px';
+      placePads();
+      return;
+    }
     if (mode === 'none') scale = Math.min(W / MIDP.SW, H / 320);
     else if (landscape) {
       // each side panel is about 3 key units wide
@@ -3338,7 +3576,7 @@ const PREFIX = 'gangstar:';
       const pad = mode === 'phone' ? 34 : 0;
       u = Math.max(40, Math.min(70, (W - pad) / (mode === 'game' ? 5.8 : 4.6)));
       const ctlH = mode === 'game' ? u * 2.65 : u * 2.3 + u * 2.9 + 12;
-      scale = Math.min((W - pad) / MIDP.SW, (H - ctlH - 12 - (mode === 'phone' ? 46 : 0)) / 320);
+      scale = Math.min((W - pad) / MIDP.SW, (H - ctlH - 12 - (mode === 'phone' ? 92 : 0)) / 320);
       if (mode === 'game') { below.style.flexDirection = 'row'; below.appendChild(a[0]); below.appendChild(a[1]); }
       else { below.style.flexDirection = 'column'; below.appendChild(a[0]); below.appendChild(a[1]); }
     }
@@ -3353,8 +3591,61 @@ const PREFIX = 'gangstar:';
   addEventListener('resize', layout);
   addEventListener('orientationchange', () => setTimeout(layout, 200));
 
+  // ---------- floating controls: position, size, transparency ----------
+  let padBottom = 12;
+  function placePads() {
+    for (const id of ['padL', 'padR']) {
+      const el = $(id), p = settings.padPos[id] || { x: 0, y: 0 };
+      el.style.bottom = 'calc(' + padBottom + 'px + env(safe-area-inset-bottom))';
+      el.style.translate = '0 0';
+      const r = el.getBoundingClientRect();           // keep it on screen whatever the size of the screen
+      const x = Math.max(-r.left + 4, Math.min(innerWidth - r.right - 4, p.x));
+      const y = Math.max(-r.top + 4, Math.min(innerHeight - r.bottom - 4, p.y));
+      el.style.translate = x + 'px ' + y + 'px';
+    }
+  }
+  (function padEditing() {
+    let drag = null;
+    for (const id of ['padL', 'padR']) {
+      const el = $(id);
+      el.addEventListener('pointerdown', (e) => {
+        if (!document.body.classList.contains('editpad')) return;
+        e.preventDefault(); e.stopPropagation();
+        const p = settings.padPos[id] || { x: 0, y: 0 };
+        drag = { id, sx: e.clientX, sy: e.clientY, x: p.x, y: p.y, pid: e.pointerId };
+        try { el.setPointerCapture(e.pointerId); } catch (x) {}
+      }, true);
+      el.addEventListener('pointermove', (e) => {
+        if (!drag || drag.id !== id || e.pointerId !== drag.pid) return;
+        settings.padPos[id] = { x: drag.x + e.clientX - drag.sx, y: drag.y + e.clientY - drag.sy };
+        placePads();
+      });
+      el.addEventListener('pointerup', () => { if (drag && drag.id === id) { drag = null; store.set('padPos', settings.padPos); } });
+    }
+    $('padEdit').onclick = () => {
+      if (settings.ctl !== 'game') { settings.ctl = 'game'; store.set('ctl', 'game'); }
+      menu.close(); document.body.classList.add('editpad'); layout();
+      if (!document.body.classList.contains('overlay')) toast('Acomodar los botones funciona con el celular acostado y pantalla ancha');
+    };
+    $('padOk').onclick = () => { document.body.classList.remove('editpad'); store.set('padPos', settings.padPos); };
+    $('padReset').onclick = () => { settings.padPos = {}; store.set('padPos', {}); placePads(); };
+  })();
+  function rangeOpt(id, key, fmt) {
+    const inp = $(id), out = $(id.replace('opt', 'out'));
+    inp.value = settings[key]; out.textContent = fmt(settings[key]);
+    inp.oninput = () => { settings[key] = +inp.value; out.textContent = fmt(settings[key]); store.set(key, settings[key]); layout(); };
+  }
+  rangeOpt('optPadSize', 'padSize', (v) => v + ' %');
+  rangeOpt('optPadA', 'padA', (v) => (100 - v) + ' %');
+  $('optOverlay').checked = settings.overlay;
+  $('optOverlay').onchange = (e) => { settings.overlay = e.target.checked; store.set('overlay', settings.overlay); layout(); };
+
   // ---------- overlay / sound / fullscreen ----------
-  function hideOverlay() { $('overlay').classList.add('hidden'); SoundEngine.unlock(); }
+  function hideOverlay() {
+    const ov = $('overlay');
+    if (!ov.classList.contains('hidden')) { ov.classList.add('hidden'); setTimeout(() => offerResume(), 1500); }
+    SoundEngine.unlock();
+  }
   $('overlay').addEventListener('pointerdown', (e) => { e.preventDefault(); hideOverlay(); });
   document.addEventListener('pointerdown', () => SoundEngine.unlock(), { capture: true });
   function applySound() { SoundEngine.setEnabled(settings.sound); $('btnSound').textContent = settings.sound ? '🔊' : '🔇'; }
@@ -3377,10 +3668,12 @@ const PREFIX = 'gangstar:';
   }
   seg('segCtl', 'ctl', layout);
   seg('segLang', 'lang', () => { sessionStorage.setItem(PREFIX + 'msg', settings.lang === 'es' ? 'Idioma: español' : 'Language: English'); location.reload(); });
-  seg('segScreen', 'screen', () => { sessionStorage.setItem(PREFIX + 'msg', 'Pantalla: ' + settings.screen + ' × 320'); location.reload(); });
+  seg('segScreen', 'screen', () => { sessionStorage.setItem(PREFIX + 'msg', 'Pantalla: ' + (settings.screen === 'auto' ? 'automática' : settings.screen + ' × 320')); location.reload(); });
   seg('segSpeed', 'speed', () => Gangstar.setSpeed(+settings.speed));
   $('optSmooth').checked = settings.smooth;
   $('optSmooth').onchange = (e) => { settings.smooth = e.target.checked; store.set('smooth', settings.smooth); Gangstar.opts.smooth = settings.smooth; };
+  $('optQuick').checked = settings.quick; Gangstar.opts.quick = settings.quick;
+  $('optQuick').onchange = (e) => { settings.quick = e.target.checked; store.set('quick', settings.quick); Gangstar.opts.quick = settings.quick; };
   $('optVib').checked = settings.vib;
   $('optVib').onchange = (e) => { settings.vib = e.target.checked; MIDP.vibration = settings.vib; store.set('vib', settings.vib); };
   // ---------- satellite view ----------
@@ -3477,9 +3770,48 @@ const PREFIX = 'gangstar:';
 
   // ---------- pause when hidden ----------
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { MIDP.visibility(false); SoundEngine.suspend(); }
+    if (document.hidden) { autoSave(); MIDP.visibility(false); SoundEngine.suspend(); }
     else { SoundEngine.resume(); MIDP.visibility(true); }
   });
+
+  // ---------- automatic save ----------
+  // A full save state in its own slot ('auto') every 2 minutes of gameplay and when the app goes to the
+  // background: on a phone that is often the last chance, the browser may throw the page away later.
+  let autoBusy = false, autoLast = Date.now();
+  async function autoSave() {
+    if (!settings.autosave || autoBusy) return;
+    const D = VM.classes.get('d');
+    if (!D || D.sv.T !== 7 || SaveState.canSave()) return;     // gameplay only, at a safe point
+    autoBusy = true;
+    try { await SaveState.saveSlot('auto', settings.lang); autoLast = Date.now(); } catch (e) {} finally { autoBusy = false; }
+  }
+  setInterval(() => { if (!document.hidden && !menu.open && !statesDlg.open && Date.now() - autoLast > 120000) autoSave(); }, 10000);
+  $('optAuto').checked = settings.autosave;
+  $('optAuto').onchange = (e) => { settings.autosave = e.target.checked; store.set('autosave', settings.autosave); };
+  addEventListener('pagehide', () => autoSave());
+
+  // "continue where you were": offered once, when the game is up after the first touch
+  let resumeOffered = false;
+  async function offerResume() {
+    if (resumeOffered || !settings.autosave) return;
+    resumeOffered = true;
+    let r = null;
+    try { r = (await SaveState.listSlots()).auto; } catch (e) {}
+    if (!r || (r.w && r.w !== MIDP.SW)) return;
+    const card = $('resume');
+    card.querySelector('img').src = r.thumb;
+    const mins = Math.round((Date.now() - r.date) / 60000);
+    card.querySelector('span').textContent = 'Guardado ' + (mins < 1 ? 'recién' : mins < 60 ? 'hace ' + mins + ' min' : fmtDate(r.date));
+    card.hidden = false;
+    const close = () => { card.hidden = true; };
+    card.querySelector('.no').onclick = close;
+    card.querySelector('.go').onclick = async () => {
+      close();
+      for (let i = 0; i < 40 && SaveState.canSave(); i++) await new Promise((res) => setTimeout(res, 150));  // wait for a safe point
+      try { await SaveState.loadSlot('auto'); toast('Seguís donde estabas ✔'); } catch (e) { toast('No se pudo cargar: ' + e.message); }
+    };
+    setTimeout(close, 20000);
+  }
 
   // ---------- cheats ----------
   const cheatIds = { chHealth: 'health', chAmmo: 'ammo', chPolice: 'noPolice' };
@@ -3498,11 +3830,12 @@ const PREFIX = 'gangstar:';
     try { slots = await SaveState.listSlots(); } catch (e) {}
     const can = SaveState.canSave();
     $('slotList').innerHTML = '';
-    for (const n of [1, 2, 3]) {
+    for (const n of ['auto', 1, 2, 3]) {
       const r = slots[n], el = document.createElement('div'); el.className = 'slot';
-      el.innerHTML = `<div class="th">${r ? `<img src="${r.thumb}">` : 'vacía'}</div><b>Ranura ${n}${n === 1 ? ' · rápida' : ''}</b>
-        <span>${r ? fmtDate(r.date) : (can || '&nbsp;')}</span>
-        <button class="save" ${can ? 'disabled title="' + can + '"' : ''}>Guardar acá</button>
+      const auto = n === 'auto', name = auto ? 'Automático' : 'Ranura ' + n + (n === 1 ? ' · rápida' : '');
+      el.innerHTML = `<div class="th">${r ? `<img src="${r.thumb}">` : 'vacía'}</div><b>${name}</b>
+        <span>${r ? fmtDate(r.date) : auto ? (settings.autosave ? 'se guarda solo' : 'desactivado') : (can || '&nbsp;')}</span>
+        <button class="save" ${can || auto ? 'disabled title="' + (auto ? 'Se guarda solo' : can) + '"' : ''}>${auto ? 'Automático' : 'Guardar acá'}</button>
         <button class="load" ${r ? '' : 'disabled'}>Cargar</button>
         <div class="more"><button class="exp" title="Exportar a archivo" ${r ? '' : 'disabled'}>⬇</button><button class="imp" title="Importar desde archivo">⬆</button><button class="del" title="Borrar" ${r ? '' : 'disabled'}>✕</button></div>`;
       el.querySelector('.save').onclick = async () => {
@@ -3510,16 +3843,17 @@ const PREFIX = 'gangstar:';
         try { await SaveState.saveSlot(n, settings.lang); toast('Guardado en ranura ' + n + ' ✔'); renderSlots(); } catch (e) { toast(e.message); }
       };
       el.querySelector('.load').onclick = async () => {
-        try { await SaveState.loadSlot(n); statesDlg.close(); toast('Ranura ' + n + ' cargada ✔'); } catch (e) { toast('No se pudo cargar: ' + e.message); }
+        try { await SaveState.loadSlot(n); statesDlg.close(); toast(name + ' cargada ✔'); } catch (e) { toast('No se pudo cargar: ' + e.message); }
       };
       el.querySelector('.exp').onclick = async () => {
         const blob = await SaveState.exportSlot(n);
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = 'gangstar-ranura' + n + '-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.gss';
+        a.download = 'gangstar-' + (auto ? 'auto' : 'ranura' + n) + '-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.gss';
         document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
       };
       el.querySelector('.imp').onclick = () => { pendingImport = n; $('stateIn').click(); };
-      el.querySelector('.del').onclick = async () => { if (confirm('¿Borrar la ranura ' + n + '?')) { await SaveState.deleteSlot(n); renderSlots(); } };
+      if (auto) el.querySelector('.imp').disabled = true;
+      el.querySelector('.del').onclick = async () => { if (confirm('¿Borrar ' + name + '?')) { await SaveState.deleteSlot(n); renderSlots(); } };
       $('slotList').appendChild(el);
     }
   }
@@ -3597,7 +3931,7 @@ const PREFIX = 'gangstar:';
   }
   function start(files, langs) {
     if (langs[settings.lang]) files['o'] = langs[settings.lang];
-    MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: () => { Wide.apply(SCREEN_W); Gangstar.beforeStart(); Satellite.beforeStart(); Gangstar.setSpeed(+settings.speed); } });
+    MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: () => { Wide.apply(SCREEN_W); Gangstar.beforeStart(); Satellite.beforeStart(); TouchMenu.beforeStart(); Gangstar.setSpeed(+settings.speed); } });
   }
   function pickData() {
     return new Promise((resolve) => {
@@ -3628,7 +3962,7 @@ const PREFIX = 'gangstar:';
       start(pkg.files, pkg.langs);
     }
   })();
-  window.__vm = VM; window.__midp = MIDP; window.__ss = SaveState; window.__settings = settings;
+  window.__vm = VM; window.__midp = MIDP; window.__ss = SaveState; window.__settings = settings; window.__autoSave = autoSave;
 })();
 </script>
 </body>
