@@ -8,7 +8,8 @@ import base64, io, json, pathlib, sys, zipfile, hashlib
 
 root = pathlib.Path(__file__).parent
 SCRIPTS = [('INFLATE', 'inflate.js'), ('JVM', 'jvm.js'), ('MIDP', 'midp.js'), ('AUDIO', 'audio.js'),
-           ('WIDE', 'wide.js'), ('GANGSTAR', 'gangstar.js'), ('SAVESTATE', 'savestate.js')]
+           ('WIDE', 'wide.js'), ('GANGSTAR', 'gangstar.js'), ('SAVESTATE', 'savestate.js'),
+           ('SATELLITE', 'satellite.js')]
 
 
 def assemble(jar_b64, langs, favicon_b64, head_extra=''):

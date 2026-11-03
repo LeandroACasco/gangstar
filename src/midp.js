@@ -368,6 +368,7 @@ const MIDP = (() => {
   function blit(img) {
     if (!state.screenCtx) return;
     if (state.blit) state.blit(img, state.screenCtx); else state.screenCtx.drawImage(img.canvas, 0, 0);
+    if (state.afterBlit) state.afterBlit(img);
   }
   function flush(img) {
     state.backImage = img;
@@ -807,7 +808,14 @@ const MIDP = (() => {
     state, get SW() { return SW; }, get SH() { return SH; },
     setScreen(w, h) { SW = w; SH = h; },
     present(img) { blit(img || state.backImage); },
-    newGraphics,
+    newGraphics, makeImage,
+    // fill a rectangle on a Java Graphics with a given colour, leaving its current colour as it was
+    fillRectWith(go, x, y, w, h, color) {
+      const g = go.g, c = g.color, css = g.css;
+      setColor(g, color);
+      if (applyClip(g)) { fill(g); frect(g, x, y, w, h); }
+      g.color = c; g.css = css;
+    },
     vibration: true,
     onSave: null,
     boot(files, screenCanvas, opts = {}) {

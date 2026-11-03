@@ -34,6 +34,9 @@
   #screenWrap { flex: none; background: #000; border-radius: 6px; overflow: hidden; position: relative;
     box-shadow: 0 0 0 5px #1d1d22, 0 0 0 6px #2c2c33, 0 10px 40px rgba(0,0,0,.6); }
   #screen { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+  #satLayer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #satBtn { position: absolute; top: 7%; right: 6px; z-index: 2; font: 600 12px system-ui, sans-serif; color: #fff;
+    background: rgba(20,20,26,.78); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 5px 10px; cursor: pointer; }
   #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 12px; background: rgba(0,0,0,.82); text-align: center; padding: 20px; cursor: pointer; }
   #overlay.hidden { display: none; }
@@ -144,6 +147,7 @@
       <div class="brand">MOBILE</div>
       <div id="screenWrap">
         <canvas id="screen" width="240" height="320"></canvas>
+        <button id="satBtn" hidden>🛰 Satelital</button>
         <div id="overlay"><b>Tocá o hacé clic para empezar</b><span>(el navegador necesita un toque para activar el sonido)</span></div>
       </div>
       <div class="below" id="below"></div>
@@ -201,6 +205,8 @@
     <h3>Imagen</h3>
     <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave (cuadros intermedios a la frecuencia de tu pantalla)</label>
     <label class="chk"><input type="checkbox" id="optVib"> Vibración</label>
+    <label class="chk"><input type="checkbox" id="optSatMap"> Mapa satelital (el mapa de la pausa dibujado con la ciudad real; también se cambia con el botón 🛰 en el mapa)</label>
+    <label class="chk"><input type="checkbox" id="optSatRadar"> Radar satelital (las calles alrededor tuyo dentro del radar)</label>
     <label class="chk"><input type="checkbox" id="optFps"> Mostrar FPS (cuadros por segundo de la imagen · ticks por segundo del juego, 10 es lo normal)</label>
     <h3>Trucos</h3>
     <div class="cheatrow">
@@ -291,6 +297,9 @@
 /*SAVESTATE*/
 </script>
 <script>
+/*SATELLITE*/
+</script>
+<script>
 const JAR_B64 = "/*JAR*/";
 const LANG_PACKS = /*LANGS*/;
 const PREFIX = 'gangstar:';
@@ -307,6 +316,8 @@ const PREFIX = 'gangstar:';
     smooth: store.get('smooth', true),
     vib: store.get('vib', true),
     fps: store.get('fps', false),
+    satMap: store.get('satMap', true),
+    satRadar: store.get('satRadar', true),
     sound: store.get('sound', true),
     screen: store.get('screen', '240'),   // width the game is told about: 240 = original, wider shows more city
     speed: store.get('speed', '1'),
@@ -484,6 +495,19 @@ const PREFIX = 'gangstar:';
   $('optSmooth').onchange = (e) => { settings.smooth = e.target.checked; store.set('smooth', settings.smooth); Gangstar.opts.smooth = settings.smooth; };
   $('optVib').checked = settings.vib;
   $('optVib').onchange = (e) => { settings.vib = e.target.checked; MIDP.vibration = settings.vib; store.set('vib', settings.vib); };
+  // ---------- satellite view ----------
+  Satellite.attach($('screenWrap'), $('screen'), $('satBtn'));
+  function applySat() {
+    Satellite.opts.map = settings.satMap; Satellite.opts.radar = settings.satRadar;
+    $('optSatMap').checked = settings.satMap; $('optSatRadar').checked = settings.satRadar;
+    $('satBtn').textContent = settings.satMap ? '🗺 Plano' : '🛰 Satelital';
+    Satellite.refresh();
+  }
+  $('optSatMap').onchange = (e) => { settings.satMap = e.target.checked; store.set('satMap', settings.satMap); applySat(); };
+  $('optSatRadar').onchange = (e) => { settings.satRadar = e.target.checked; store.set('satRadar', settings.satRadar); applySat(); };
+  $('satBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); settings.satMap = !settings.satMap; store.set('satMap', settings.satMap); applySat(); });
+  Satellite.listeners.onState = (s) => { if (s === 'building' && (settings.satMap || settings.satRadar)) toast('Preparando la vista satelital…'); };
+  applySat();
   $('optFps').checked = settings.fps;
   $('optFps').onchange = (e) => { settings.fps = e.target.checked; store.set('fps', settings.fps); fpsMeter(); };
 
@@ -685,7 +709,7 @@ const PREFIX = 'gangstar:';
   }
   function start(files, langs) {
     if (langs[settings.lang]) files['o'] = langs[settings.lang];
-    MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: () => { Wide.apply(SCREEN_W); Gangstar.beforeStart(); Gangstar.setSpeed(+settings.speed); } });
+    MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: () => { Wide.apply(SCREEN_W); Gangstar.beforeStart(); Satellite.beforeStart(); Gangstar.setSpeed(+settings.speed); } });
   }
   function pickData() {
     return new Promise((resolve) => {

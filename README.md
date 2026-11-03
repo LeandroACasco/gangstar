@@ -7,6 +7,7 @@ Port para navegador del juego Java (J2ME) de 2006, hecho para jugarlo en PC y An
 - **Velocidad del juego**: Normal, ×1,25 o ×1,5 (todo se acelera parejo, relojes de misión incluidos).
 - **Controles**: WASD/flechas con diagonales en PC, control de consola, joystick táctil o skin de celular clásico.
 - **Guardado en cualquier momento** (3 ranuras, F5/F9, exportable entre dispositivos).
+- **Vista satelital**: el mapa de la pausa y el radar muestran la ciudad dibujada con las baldosas reales del juego (se puede apagar en el menú o con el botón 🛰 del mapa).
 - **Trucos**: salud y munición infinitas, sin policía, dinero.
 - **Español / English**.
 - Instalable como app (PWA) y funciona sin conexión.
@@ -27,6 +28,7 @@ una vez en cada dispositivo y queda guardado solo ahí (IndexedDB). Nunca se sub
 | `src/gangstar.js` | Capa específica del juego: cuadros intermedios, ritmo de los ticks, velocidad, trucos |
 | `src/wide.js` | Pantalla panorámica: reescribe las constantes de tamaño de pantalla del juego al cargarlo, acomoda el HUD y centra los menús |
 | `src/savestate.js` | Guardado de estado completo |
+| `src/satellite.js` | Vista satelital: dibuja la ciudad entera con las baldosas del juego y la muestra en el mapa y el radar |
 | `src/shell.html` | Interfaz, controles, menús |
 | `docs/` | App compilada que publica GitHub Pages |
 
