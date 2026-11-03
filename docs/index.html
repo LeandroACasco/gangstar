@@ -2657,9 +2657,9 @@ const Gangstar = (() => {
   const actors = [];           // instances of class b (people, cars...): fields 'b.a','b.b' = x,y in 24.8 fixed point
   const randoms = [];
   let D = null, userClasses = [];
-  let prev = null, cur = null, tickAt = 0, tickLen = 100, lastAlpha = -1;
+  let prev = null, cur = null, tickAt = 0, tickLen = 100, lastAlpha = -1, lastTick = 0, hurried = false;
   let active = false, inInterp = false, drawSnap = null;
-  const opts = { smooth: true, speed: 1, quick: true, smoothTurn: true };
+  const opts = { smooth: true, speed: 1, quick: true, smoothTurn: true, lead: 0.5, nudge: true };
 
   // ----- game clock and tick pacing -----
   // The game's main loop (d.run) runs one tick, then spins on Thread.yield() until 100 ms of
@@ -2680,7 +2680,7 @@ const Gangstar = (() => {
     if (f.ipc === 101) {                          // inside the wait for the next tick
       const due = Number(D.sv.at) + 100;
       if (nudged) {                               // a key went down: start the next tick now (see nudge)
-        nudged = false;
+        nudged = false; hurried = true;
         const g = gameNow();
         if (due > g) clockGame += due - g;
         return undefined;
@@ -2703,7 +2703,7 @@ const Gangstar = (() => {
   //    the real one and the map tiles that this uncovers are drawn into the spare slot of the map buffer.
   let nudged = false, lastNudge = 0;
   function nudge() {
-    if (!opts.quick || !D || D.sv.T !== 7 || nudged) return;
+    if (!opts.quick || !opts.nudge || !D || D.sv.T !== 7 || nudged) return;
     const now = performance.now();
     if (now - lastNudge < 300) return;
     lastNudge = now; nudged = true;
@@ -2738,7 +2738,7 @@ const Gangstar = (() => {
   // flips (getting in/out of a car with a direction held).
   let wasDriving = false;
   const driving = () => !!(D && D.sv.T === 7 && !D.sv.cA && D.sv.cH === 1);
-  const hooks = { onDrivingChange: null };
+  const hooks = { onDrivingChange: null, onFrame: null };   // onFrame: test instrumentation
 
   const stats = { renders: 0, ticks: 0, renderMs: 0, realShown: 0, turned: 0, lastTurn: 0 };
 
@@ -2794,8 +2794,10 @@ const Gangstar = (() => {
   function onTickFlush() {
     const now = performance.now();
     stats.ticks++;
-    if (tickAt) tickLen = Math.min(200, Math.max(60, tickLen * 0.8 + (now - tickAt) * 0.2));
-    tickAt = now;
+    // tick length from the real arrivals of un-hurried ticks (a key press can start one early, see nudge)
+    if (lastTick && !hurried) tickLen = Math.min(200, Math.max(60, tickLen * 0.8 + (now - lastTick) * 0.2));
+    lastTick = now; hurried = false;
+    tickAt = now; glideLen = tickLen;
     edgeDrawn = new Set();                      // the real frame may have reused the spare slot
     applyCheats();
     const dr = driving();
@@ -2805,6 +2807,18 @@ const Gangstar = (() => {
     if (!ok) { active = false; prev = cur = null; stats.realShown++; return true; }
     prev = cur;
     cur = snapshotPositions(); cur.state = snap;
+    // this step starts from what is on screen right now (when it was drawn and is not a teleport)
+    from = new Map();
+    const close = (a, b, max) => a && Math.abs(a[0] - b[0]) <= max && Math.abs(a[1] - b[1]) <= max;
+    for (const [o, c] of cur.actors) { const sh = shown.get(o); if (close(sh, c, 72 << 8)) from.set(o, sh); }
+    fromCam = close(shownCam, cur.cam, 96) ? shownCam : null;
+    // Time the step from the frame that showed 'from', not from now: the first frame after a tick then
+    // moves as far as any other frame. Counting from the tick's arrival made that frame stand still
+    // (or step back a pixel) ten times a second, a small regular stutter that showed most on cars.
+    if ((from.size || fromCam) && shownAt && now - shownAt < tickLen) tickAt = shownAt;
+    // a tick that comes early (key press) leaves more of the way to go: take proportionally longer, so the
+    // picture keeps its speed instead of hurrying
+    glideLen = tickLen * (1 + Math.max(0, 1 - shownAlpha - 0.2));
     if (!prev) { active = false; stats.realShown++; return true; }
     active = true; lastAlpha = -1;
     return false; // extra frames (including alpha = 1) are presented by frame()
@@ -2833,7 +2847,6 @@ const Gangstar = (() => {
     randoms.forEach((r, i) => { if (i < s.seeds.length) r.seed = s.seeds[i]; });
   }
 
-  const LEAD = 0.5;
   let drawAlpha = 1;
   function turnAngle(o) {
     if (!inInterp || !opts.smoothTurn || !cur || !prev) return 0;
@@ -2845,25 +2858,42 @@ const Gangstar = (() => {
     return (1 - t) * d * Math.PI / 8;            // canvas angles turn clockwise, directions counter-clockwise
   }
   const lerp = (a, b, t, max) => (Math.abs(b - a) > max ? b : Math.round(a + (b - a) * t));
+  const glideTarget = (a, b, lead, max) => (Math.abs(b - a) > max ? b : b + (b - a) * lead);
+  let from = new Map(), fromCam = null, shown = new Map(), shownCam = null, shownAt = 0, shownAlpha = 1, glideLen = 100;
 
   // the live state only changes when Java code runs (VM.epoch), so it is captured once per change, not per frame
   let liveSnap = null, liveEpoch = -1;
-  function renderInterpolated(alpha) {
+  function renderInterpolated(alpha, at) {
+    if (at) { shownAt = at; shownAlpha = alpha; }
     if (!liveSnap || liveEpoch !== VM.epoch) liveSnap = saveState();
     const saved = liveSnap;
     try {
       restoreState(cur.state);
-      drawAlpha = alpha;
+      drawAlpha = alpha + (opts.quick ? opts.lead : 0);
+      // each in-between frame glides from where the picture was when this tick arrived (from) to the
+      // target: the new position, carried on by opts.lead of the last step when "quick response" is on.
+      // Starting from what is on screen keeps the movement continuous even when a tick comes early.
+      const lead = opts.quick ? opts.lead : 0, t = alpha;
       for (const [o, c] of cur.actors) {
         const p = prev.actors.get(o);
         if (!p) continue;
-        o['b.a'] = lerp(p[0], c[0], alpha, 72 << 8);
-        o['b.b'] = lerp(p[1], c[1], alpha, 72 << 8);
+        const f = from.get(o);
+        const tx = glideTarget(p[0], c[0], lead, 72 << 8), ty = glideTarget(p[1], c[1], lead, 72 << 8);
+        const fx = f ? f[0] : lerp(p[0], c[0], lead, 72 << 8), fy = f ? f[1] : lerp(p[1], c[1], lead, 72 << 8);
+        o['b.a'] = Math.round(fx + (tx - fx) * t);
+        o['b.b'] = Math.round(fy + (ty - fy) * t);
+        shown.set(o, [o['b.a'], o['b.b']]);
       }
       const near = (v, c) => Math.max(c - 23, Math.min(c + 23, v));   // within a tile of the real camera
-      D.sv.fU = near(lerp(prev.cam[0], cur.cam[0], alpha, 96), cur.cam[0]);
-      D.sv.fV = near(lerp(prev.cam[1], cur.cam[1], alpha, 96), cur.cam[1]);
+      const cam = [0, 1].map((i) => {
+        const p = prev.cam[i], c = cur.cam[i], tg = near(glideTarget(p, c, lead, 96), c);
+        const f = fromCam ? fromCam[i] : near(lerp(p, c, lead, 96), c);
+        return near(Math.round(f + (tg - f) * t), c);
+      });
+      D.sv.fU = cam[0]; D.sv.fV = cam[1];
+      shownCam = cam;
       edgeTiles();
+      if (hooks.onFrame) hooks.onFrame(D.sv.fU, D.sv.fV, alpha);
       D.sv.bQ = 1;
       D.sv.am = MIDP.newGraphics(MIDP.state.backImage);
       inInterp = true;
@@ -2911,11 +2941,12 @@ const Gangstar = (() => {
     requestAnimationFrame(frame);
     if (!active || !cur || !prev || !VM.running) return;
     if (!gameThreadIdle()) return;
-    const alpha = Math.min(1, (now - tickAt) / tickLen) + (opts.quick ? LEAD : 0);
+    // a late tick: keep going a little in the same direction instead of standing still (corrected on arrival)
+    const alpha = Math.max(0, Math.min(1.2, (now - tickAt) / glideLen));
     if (alpha === lastAlpha) return;
     lastAlpha = alpha;
     const t0 = performance.now();
-    renderInterpolated(alpha);
+    renderInterpolated(alpha, now);
     stats.renders++; stats.renderMs += performance.now() - t0;
   }
 
@@ -2927,7 +2958,8 @@ const Gangstar = (() => {
       if (n === 'a' || n === 'b' || n === 'c' || n === 'd') { tracked.push(o); if (n === 'b') actors.push(o); }
       else if (n === 'java/util/Random') randoms.push(o);
     }
-    prev = cur = null; drawSnap = null; active = false; tickAt = 0; liveSnap = null;
+    prev = cur = null; drawSnap = null; active = false; tickAt = 0; lastTick = 0; liveSnap = null;
+    from = new Map(); fromCam = null; shown = new Map(); shownCam = null; shownAt = 0;
     // the map buffer image may come from an older version with another size (see Wide): rebuild it,
     // the next map refresh (d.Z -> d.Y) creates it again at the current size and redraws it whole
     if (D) { D.sv.ho = null; D.sv.fL = -1; }
