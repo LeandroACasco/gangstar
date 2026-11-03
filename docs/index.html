@@ -89,6 +89,9 @@
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #26262c; border: 1px solid var(--line);
     padding: 10px 16px; border-radius: 10px; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90vw; z-index: 20; }
   #toast.show { opacity: 1; }
+  #fps { position: fixed; left: calc(6px + env(safe-area-inset-left)); bottom: calc(6px + env(safe-area-inset-bottom)); z-index: 15;
+    font: 11px ui-monospace, monospace; color: var(--muted); background: rgba(0,0,0,.55); padding: 2px 6px; border-radius: 5px; pointer-events: none; }
+  #fps.low { color: #f5a524; } #fps.bad { color: #ff6b6b; }
   dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(440px, 94vw); max-height: 90vh; }
   dialog::backdrop { background: rgba(0,0,0,.6); }
   .dlg { padding: 18px; display: flex; flex-direction: column; gap: 10px; overflow: auto; max-height: 88vh; touch-action: pan-y; }
@@ -183,6 +186,7 @@
   </div>
 </div>
 <div id="toast"></div>
+<div id="fps" hidden></div>
 
 <dialog id="menu">
   <div class="dlg">
@@ -200,6 +204,7 @@
     <h3>Imagen</h3>
     <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave (cuadros intermedios a la frecuencia de tu pantalla)</label>
     <label class="chk"><input type="checkbox" id="optVib"> Vibración</label>
+    <label class="chk"><input type="checkbox" id="optFps"> Mostrar FPS (cuadros por segundo de la imagen · ticks por segundo del juego, 10 es lo normal)</label>
     <h3>Trucos</h3>
     <div class="cheatrow">
       <label class="chk"><input type="checkbox" id="chHealth"> Salud infinita</label>
@@ -219,7 +224,7 @@
     <div class="row" id="saveTextRow" hidden><button class="btn primary" id="saveTextOk">Cargar esta partida</button></div>
     <h3>Teclado (PC)</h3>
     <table>
-      <tr><td><kbd>W A S D</kbd> / <kbd>↑ ↓ ← →</kbd></td><td>Moverse (dos teclas juntas = diagonal)</td></tr>
+      <tr><td><kbd>W A S D</kbd> / <kbd>↑ ↓ ← →</kbd></td><td>Moverse (dos teclas juntas = diagonal; en el auto, acelerar y doblar a la vez)</td></tr>
       <tr><td><kbd>Espacio</kbd> / <kbd>J</kbd></td><td>Disparar · OK (tecla 5)</td></tr>
       <tr><td><kbd>F</kbd> / <kbd>K</kbd></td><td>Entrar / salir del auto (tecla 0)</td></tr>
       <tr><td><kbd>Q</kbd> · <kbd>R</kbd></td><td>Arma anterior (*) · siguiente (#)</td></tr>
@@ -2576,6 +2581,17 @@ const Gangstar = (() => {
     D.sv.cx = Math.min(99999999, D.sv.cx + n); D.sv.dc |= 1;
     return true;
   }
+  // ----- driving: up/down and left/right are separate keys -----
+  // On foot (d.cA set, handled by d.aE()) the game moves in the 8 directions of keys 1..9, so two directions
+  // pressed together must become one diagonal key. In a vehicle (d.cA clear, d.aG()) with the game's car
+  // controls (d.cH == 1) it reads 2 = accelerate, 8 = brake/reverse, 4/6 = steer as independent keys and
+  // ignores 1/3/7/9 entirely: a diagonal there meant "no gas, no steering".
+  // driving() tells the controls which of the two the game wants right now; onDrivingChange fires when it
+  // flips (getting in/out of a car with a direction held).
+  let wasDriving = false;
+  const driving = () => !!(D && D.sv.T === 7 && !D.sv.cA && D.sv.cH === 1);
+  const hooks = { onDrivingChange: null };
+
   const stats = { renders: 0, ticks: 0, renderMs: 0, realShown: 0 };
 
   function beforeStart() {
@@ -2615,6 +2631,8 @@ const Gangstar = (() => {
     if (tickAt) tickLen = Math.min(200, Math.max(60, tickLen * 0.8 + (now - tickAt) * 0.2));
     tickAt = now;
     applyCheats();
+    const dr = driving();
+    if (dr !== wasDriving) { wasDriving = dr; if (hooks.onDrivingChange) hooks.onDrivingChange(dr); }
     const snap = drawSnap; drawSnap = null;
     const ok = opts.smooth && snap && D.sv.T === 7 && !D.sv.ee && !D.sv.ar;
     if (!ok) { active = false; prev = cur = null; stats.realShown++; return true; }
@@ -2708,7 +2726,7 @@ const Gangstar = (() => {
     prev = cur = null; drawSnap = null; active = false; tickAt = 0; liveSnap = null;
   }
 
-  return { beforeStart, adopt, opts, setSpeed, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
+  return { beforeStart, adopt, opts, setSpeed, driving, hooks, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
 })();
 
 </script>
@@ -2994,6 +3012,7 @@ const PREFIX = 'gangstar:';
     lang: store.get('lang', 'es'),
     smooth: store.get('smooth', true),
     vib: store.get('vib', true),
+    fps: store.get('fps', false),
     sound: store.get('sound', true),
     screen: store.get('screen', '240'),   // width the game is told about: 240 = original, wider shows more city
     speed: store.get('speed', '1'),
@@ -3010,18 +3029,26 @@ const PREFIX = 'gangstar:';
   // ---------- key output ----------
   function press(code, down) { SoundEngine.unlock(); MIDP.key(code, down); }
 
-  // Direction combiner: the game wants a single key per direction (1..9), so combos become diagonals.
+  // Direction combiner. Keyboard, joystick and gamepad all end up as one of 8 directions (a digit 1..9).
+  // On foot the game wants exactly that digit (two directions together = the diagonal key). Driving, it
+  // wants the two halves as separate keys held at once (2 + 6 = accelerate while steering right) and
+  // ignores the diagonal keys, so there the diagonal is split (see Gangstar.driving).
   const DIRS = { '-1,-1': 49, '0,-1': 50, '1,-1': 51, '-1,0': 52, '1,0': 54, '-1,1': 55, '0,1': 56, '1,1': 57 };
+  const SPLIT = { 49: [50, 52], 51: [50, 54], 55: [56, 52], 57: [56, 54] };
   const kbDir = { u: 0, d: 0, l: 0, r: 0 };
-  let joyDigit = null, padDigit = null, curDigit = null;
+  let joyDigit = null, padDigit = null, curDigit = null, curSplit = false, dirDown = [];
   function updateDir() {
     const dx = kbDir.r - kbDir.l, dy = kbDir.d - kbDir.u;
     const digit = joyDigit !== null ? joyDigit : padDigit !== null ? padDigit : (DIRS[dx + ',' + dy] || null);
-    if (digit === curDigit) return;
-    if (curDigit !== null) press(curDigit, false);
-    curDigit = digit;
-    if (digit !== null) press(digit, true);
+    const split = Gangstar.driving();
+    if (digit === curDigit && split === curSplit) return;
+    curDigit = digit; curSplit = split;
+    const want = digit === null ? [] : split && SPLIT[digit] ? SPLIT[digit] : [digit];
+    for (const c of dirDown) if (!want.includes(c)) press(c, false);   // keys that stay held keep their hold time
+    for (const c of want) if (!dirDown.includes(c)) press(c, true);
+    dirDown = want;
   }
+  Gangstar.hooks.onDrivingChange = () => updateDir();
 
   // ---------- touch buttons ----------
   document.querySelectorAll('.k[data-k]').forEach((b) => {
@@ -3163,6 +3190,30 @@ const PREFIX = 'gangstar:';
   $('optSmooth').onchange = (e) => { settings.smooth = e.target.checked; store.set('smooth', settings.smooth); Gangstar.opts.smooth = settings.smooth; };
   $('optVib').checked = settings.vib;
   $('optVib').onchange = (e) => { settings.vib = e.target.checked; MIDP.vibration = settings.vib; store.set('vib', settings.vib); };
+  $('optFps').checked = settings.fps;
+  $('optFps').onchange = (e) => { settings.fps = e.target.checked; store.set('fps', settings.fps); fpsMeter(); };
+
+  // ---------- FPS meter (frames shown per second · game ticks per second) ----------
+  let fpsRaf = 0;
+  function fpsMeter() {
+    const el = $('fps');
+    el.hidden = !settings.fps;
+    cancelAnimationFrame(fpsRaf);
+    if (!settings.fps) return;
+    let t0 = performance.now(), frames = 0, ticks0 = Gangstar.stats.ticks;
+    el.textContent = '-- fps';
+    const loop = (now) => {
+      fpsRaf = requestAnimationFrame(loop);
+      frames++;
+      if (now - t0 < 500) return;
+      const fps = Math.round(frames * 1000 / (now - t0)), tps = (Gangstar.stats.ticks - ticks0) * 1000 / (now - t0);
+      el.textContent = fps + ' fps · ' + tps.toFixed(1) + ' t/s';
+      el.className = fps < 30 ? 'bad' : fps < 50 ? 'low' : '';
+      t0 = now; frames = 0; ticks0 = Gangstar.stats.ticks;
+    };
+    fpsRaf = requestAnimationFrame(loop);
+  }
+  fpsMeter();
   const releaseAll = () => { for (const c of held.values()) press(c, false); held.clear(); kbDir.u = kbDir.d = kbDir.l = kbDir.r = 0; joyDigit = null; updateDir(); };
   const openMenu = () => { if (menu.open) return; releaseAll(); VM.freeze(); menu.showModal(); };
   $('btnMenu').onclick = openMenu;

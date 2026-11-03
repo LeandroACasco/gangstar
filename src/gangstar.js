@@ -69,6 +69,17 @@ const Gangstar = (() => {
     D.sv.cx = Math.min(99999999, D.sv.cx + n); D.sv.dc |= 1;
     return true;
   }
+  // ----- driving: up/down and left/right are separate keys -----
+  // On foot (d.cA set, handled by d.aE()) the game moves in the 8 directions of keys 1..9, so two directions
+  // pressed together must become one diagonal key. In a vehicle (d.cA clear, d.aG()) with the game's car
+  // controls (d.cH == 1) it reads 2 = accelerate, 8 = brake/reverse, 4/6 = steer as independent keys and
+  // ignores 1/3/7/9 entirely: a diagonal there meant "no gas, no steering".
+  // driving() tells the controls which of the two the game wants right now; onDrivingChange fires when it
+  // flips (getting in/out of a car with a direction held).
+  let wasDriving = false;
+  const driving = () => !!(D && D.sv.T === 7 && !D.sv.cA && D.sv.cH === 1);
+  const hooks = { onDrivingChange: null };
+
   const stats = { renders: 0, ticks: 0, renderMs: 0, realShown: 0 };
 
   function beforeStart() {
@@ -108,6 +119,8 @@ const Gangstar = (() => {
     if (tickAt) tickLen = Math.min(200, Math.max(60, tickLen * 0.8 + (now - tickAt) * 0.2));
     tickAt = now;
     applyCheats();
+    const dr = driving();
+    if (dr !== wasDriving) { wasDriving = dr; if (hooks.onDrivingChange) hooks.onDrivingChange(dr); }
     const snap = drawSnap; drawSnap = null;
     const ok = opts.smooth && snap && D.sv.T === 7 && !D.sv.ee && !D.sv.ar;
     if (!ok) { active = false; prev = cur = null; stats.realShown++; return true; }
@@ -201,5 +214,5 @@ const Gangstar = (() => {
     prev = cur = null; drawSnap = null; active = false; tickAt = 0; liveSnap = null;
   }
 
-  return { beforeStart, adopt, opts, setSpeed, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
+  return { beforeStart, adopt, opts, setSpeed, driving, hooks, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
 })();
