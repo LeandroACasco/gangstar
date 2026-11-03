@@ -103,6 +103,25 @@ const Gangstar = (() => {
   const driving = () => !!(D && D.sv.T === 7 && !D.sv.cA && D.sv.cH === 1);
   const hooks = { onDrivingChange: null, onFrame: null };   // onFrame: test instrumentation
 
+  // ----- assisted driving: keep the throttle in curves -----
+  // With the game's "assisted" car controls (d.cH != 1, d.aG from pc 694) the car turns towards the stick
+  // one step per tick, and while it is not yet facing there it only accelerates if b.i[17] <= 2 (low
+  // speed): any turn at speed coasts and a 90° turn loses most of the speed. Optionally that check is
+  // skipped (the if_icmpgt at pc 811 becomes pop2 nop nop), so the car keeps accelerating while it turns.
+  // Pointing the stick backwards still brakes and reverses, as in the game.
+  let curveSaved = null;
+  function setCurveThrottle(on) {
+    const m = D && D.methods.get('aG()V');
+    if (!m || !m.code) return false;
+    const c = m.code, pc = 811;
+    if (!curveSaved) {
+      if (c[pc] !== 0xa3 || c[pc - 1] !== 0x05) return false;   // iconst_2; if_icmpgt: not the expected code
+      curveSaved = c.slice(pc, pc + 3);
+    }
+    if (on) { c[pc] = 0x58; c[pc + 1] = 0x00; c[pc + 2] = 0x00; } else c.set(curveSaved, pc);
+    return true;
+  }
+
   const stats = { renders: 0, ticks: 0, renderMs: 0, realShown: 0, turned: 0, lastTurn: 0 };
 
   function beforeStart() {
@@ -125,27 +144,27 @@ const Gangstar = (() => {
     // smooth turning: a car has 16 pre-drawn directions (b.i[1], 22.5° apart, counter-clockwise) and turns
     // one step per tick, so with smooth movement the jump from one picture to the next showed. In the
     // in-between frames the car (b.g draws an actor) is drawn turned by the part of the step still to come.
+    // The car is drawn once, into a screen-sized layer of its own (recording where its pieces land), and
+    // that part of the layer is then put on the screen turned as a whole. Drawing b.g() twice (once to
+    // measure) was wrong: besides drawing, it queues the car's headlights for the game to draw later, so a
+    // turning car had its lights drawn twice and they looked brighter while it turned.
     const layer = document.createElement('canvas'), lctx = layer.getContext('2d');
     const turning = (origG, self) => {
       const t = turnAngle(self);
       if (!t) return origG(self);
-      // where the car lands on the screen: draw it once without drawing (this frame's state is thrown away
-      // afterwards anyway), then for real, turned around the centre of that
-      const box = MIDP.state.measure = [];
-      try { origG(self); } finally { MIDP.state.measure = null; }
-      if (!box.length) return origG(self);
-      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-      for (let i = 0; i < box.length; i += 4) { x1 = Math.min(x1, box[i]); y1 = Math.min(y1, box[i + 1]); x2 = Math.max(x2, box[i + 2]); y2 = Math.max(y2, box[i + 3]); }
-      stats.turned++; stats.lastTurn = t;
-      // draw the car, lights included, unturned into its own layer, then put the layer down turned as a whole
-      const pad = 2, ox = Math.floor(x1) - pad, oy = Math.floor(y1) - pad;
-      const w = Math.ceil(x2) - ox + pad, h = Math.ceil(y2) - oy + pad;
-      if (layer.width < w || layer.height < h) { layer.width = Math.max(layer.width, w); layer.height = Math.max(layer.height, h); }
-      lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.clearRect(0, 0, layer.width, layer.height); lctx.imageSmoothingEnabled = false;
-      MIDP.state.layer = { ctx: lctx, ox, oy };
+      const W = MIDP.state.backImage ? MIDP.state.backImage.w : MIDP.SW, H = MIDP.SH;
+      if (layer.width !== W || layer.height !== H) { layer.width = W; layer.height = H; }
+      lctx.imageSmoothingEnabled = false;
+      const L = MIDP.state.layer = { ctx: lctx, ox: 0, oy: 0, box: [Infinity, Infinity, -Infinity, -Infinity] };
       let r;
       try { r = origG(self); } finally { MIDP.state.layer = null; }
-      MIDP.drawLayer(D.sv.am, layer, ox, oy, (x1 + x2) / 2, (y1 + y2) / 2, t);
+      const [x1, y1, x2, y2] = L.box;
+      if (x2 <= x1 || y2 <= y1) return r;
+      const bx = Math.max(0, Math.floor(x1)), by = Math.max(0, Math.floor(y1));
+      const bw = Math.min(W, Math.ceil(x2)) - bx, bh = Math.min(H, Math.ceil(y2)) - by;
+      stats.turned++; stats.lastTurn = t;
+      if (bw > 0 && bh > 0) MIDP.drawLayer(D.sv.am, layer, bx, by, bw, bh, (x1 + x2) / 2, (y1 + y2) / 2, t);
+      lctx.clearRect(bx, by, bw, bh);
       return r;
     };
     VM.hookMethod('b', 'g()V', turning);
@@ -337,5 +356,5 @@ const Gangstar = (() => {
     if (D) { D.sv.ho = null; D.sv.fL = -1; }
   }
 
-  return { beforeStart, adopt, opts, setSpeed, nudge, driving, hooks, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
+  return { beforeStart, adopt, opts, setSpeed, nudge, driving, setCurveThrottle, hooks, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
 })();

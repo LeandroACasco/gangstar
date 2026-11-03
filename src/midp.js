@@ -544,9 +544,8 @@ const MIDP = (() => {
     const dw = tr >= 4 ? h : w, dh = tr >= 4 ? w : h;
     [x, y] = anchorImg(x + g.tx, y + g.ty, dw, dh, anchor);
     touch(g, x, y, dw, dh);
-    if (state.measure) { state.measure.push(x, y, x + dw, y + dh); return; }
     const L = state.layer, ctx = L ? L.ctx : g.ctx;
-    if (L) { x -= L.ox; y -= L.oy; }
+    if (L) { layerBox(L, x, y, dw, dh); x -= L.ox; y -= L.oy; }
     if (tr === 0) { ctx.drawImage(img.canvas, sx, sy, w, h, x, y, w, h); return; }
     const m = TR[tr] || TR[0];
     const e = m[4] === 'w' ? w : m[4] === 'h' ? h : 0, f = m[5] === 'w' ? w : m[5] === 'h' ? h : 0;
@@ -555,16 +554,21 @@ const MIDP = (() => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
   // Used by the port to turn a car smoothly between two of its 16 pre-drawn directions:
-  // state.measure = []: image drawing only records where it would land (x1, y1, x2, y2, ...);
-  // state.layer = { ctx, ox, oy }: image drawing goes to that canvas instead, shifted by (-ox, -oy), and
-  // drawLayer() then puts the whole layer on the screen turned at once. Turning the pieces one by one made
+  // state.layer = { ctx, ox, oy, box }: image drawing goes to that canvas instead, shifted by (-ox, -oy),
+  // and box grows to cover it; drawLayer() then puts that part on the screen turned at once. Turning the pieces one by one made
   // overlapping see-through parts (headlight beams at night) blend differently from frame to frame.
-  function drawLayer(go, canvas, x, y, cx, cy, a) {
+  function layerBox(L, x, y, w, h) {
+    const b = L.box;
+    if (!b) return;
+    if (x < b[0]) b[0] = x; if (y < b[1]) b[1] = y; if (x + w > b[2]) b[2] = x + w; if (y + h > b[3]) b[3] = y + h;
+  }
+  // put the (x, y, w, h) part of a layer on the screen, turned by a radians around (cx, cy)
+  function drawLayer(go, canvas, x, y, w, h, cx, cy, a) {
     const g = go.g;
     if (!applyClip(g)) return;
     const ctx = g.ctx, c = Math.cos(a), sn = Math.sin(a);
     ctx.setTransform(c, sn, -sn, c, cx - c * cx + sn * cy, cy - sn * cx - c * cy);
-    ctx.drawImage(canvas, x, y);
+    ctx.drawImage(canvas, x, y, w, h, x, y, w, h);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
   const rgbCache = new Map();
@@ -649,9 +653,8 @@ const MIDP = (() => {
         if (img === null) NPE();
         if (!applyClip(g)) return;
         const [dx, dy] = anchorImg(x + g.tx, y + g.ty, img.w, img.h, a);
-        if (state.measure) { state.measure.push(dx, dy, dx + img.w, dy + img.h); return; }
         touch(g, dx, dy, img.w, img.h);
-        if (state.layer) { state.layer.ctx.drawImage(img.canvas, dx - state.layer.ox, dy - state.layer.oy); return; }
+        if (state.layer) { layerBox(state.layer, dx, dy, img.w, img.h); state.layer.ctx.drawImage(img.canvas, dx - state.layer.ox, dy - state.layer.oy); return; }
         g.ctx.drawImage(img.canvas, dx, dy);
       }),
       'drawRegion(Ljavax/microedition/lcdui/Image;IIIIIIII)V': G((g, img, sx, sy, w, h, tr, x, y, a) => {
@@ -660,7 +663,6 @@ const MIDP = (() => {
       }),
       'drawRGB([IIIIIIIZ)V': G((g, rgb, off, scan, x, y, w, h, alpha) => {
         if (w <= 0 || h <= 0 || !applyClip(g)) return;
-        if (state.measure) { state.measure.push(x + g.tx, y + g.ty, x + g.tx + w, y + g.ty + h); return; }
         // Sprites are decoded to ARGB every frame; identical pixel blocks repeat, so cache them as canvases.
         let h1 = 0x811c9dc5 ^ w, h2 = (h * 2654435761) | (alpha ? 1 : 0);
         for (let yy = 0; yy < h; yy++) {
@@ -677,7 +679,7 @@ const MIDP = (() => {
           if (rgbCache.size > 4000) rgbCache.delete(rgbCache.keys().next().value);
         }
         touch(g, x + g.tx, y + g.ty, w, h);
-        if (state.layer) { state.layer.ctx.drawImage(c, x + g.tx - state.layer.ox, y + g.ty - state.layer.oy); return; }
+        if (state.layer) { layerBox(state.layer, x + g.tx, y + g.ty, w, h); state.layer.ctx.drawImage(c, x + g.tx - state.layer.ox, y + g.ty - state.layer.oy); return; }
         g.ctx.drawImage(c, x + g.tx, y + g.ty);
       }),
       'copyArea(IIIIIII)V': G((g, sx, sy, w, h, dx, dy, a) => {
