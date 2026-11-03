@@ -7,6 +7,7 @@
 'use strict';
 
 const Wide = (() => {
+  let clearBands = false;   // menus: leave the side bands transparent (presentation art behind the canvas)
   // operand bytes after the opcode (0 for everything not listed); -1 = variable length
   const LEN = new Int8Array(256);
   for (const o of [0x10, 0x12, 0x15, 0x16, 0x17, 0x18, 0x19, 0x36, 0x37, 0x38, 0x39, 0x3a, 0xa9, 0xbc]) LEN[o] = 1;
@@ -225,7 +226,8 @@ const Wide = (() => {
       }
       if (Narrow.on) {                               // a menu drawn in the middle: black bands on the sides
         const dx = Narrow.dx;
-        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, dx, 320); ctx.fillRect(dx + 240, 0, W - dx - 240, 320);
+        if (clearBands) { ctx.clearRect(0, 0, dx, 320); ctx.clearRect(dx + 240, 0, W - dx - 240, 320); }   // art behind
+        else { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, dx, 320); ctx.fillRect(dx + 240, 0, W - dx - 240, 320); }
         ctx.drawImage(src, dx, 0, 240, 320, dx, 0, 240, 320);
         return;
       }
@@ -244,5 +246,5 @@ const Wide = (() => {
     return { init, get state() { return { top, bottom }; } };
   })();
 
-  return { apply, walk, constAt, patchClass, stats, Hud, get dx() { return Narrow.on ? Narrow.dx : 0; } };
+  return { apply, walk, constAt, patchClass, stats, Hud, get dx() { return Narrow.on ? Narrow.dx : 0; }, set clearBands(v) { clearBands = !!v; } };
 })();

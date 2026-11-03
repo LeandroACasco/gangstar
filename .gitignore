@@ -11,3 +11,5 @@ test/*.json
 test/*.gss
 node_modules/
 __pycache__/
+# promotional art (Gameloft) goes only in the private data package
+art/

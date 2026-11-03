@@ -9,14 +9,21 @@ import base64, io, json, pathlib, sys, zipfile, hashlib
 root = pathlib.Path(__file__).parent
 SCRIPTS = [('INFLATE', 'inflate.js'), ('JVM', 'jvm.js'), ('MIDP', 'midp.js'), ('AUDIO', 'audio.js'),
            ('WIDE', 'wide.js'), ('GANGSTAR', 'gangstar.js'), ('SAVESTATE', 'savestate.js'),
-           ('SATELLITE', 'satellite.js'), ('TOUCHMENU', 'touchmenu.js')]
+           ('SATELLITE', 'satellite.js'), ('TOUCHMENU', 'touchmenu.js'), ('ARTJS', 'art.js')]
 
 
-def assemble(jar_b64, langs, favicon_b64, head_extra=''):
+def art_files():
+    # promotional art: only in the private data package / the single-file build, never in the repo
+    d = root / 'art'
+    return sorted(d.glob('*.webp')) if d.exists() else []
+
+
+def assemble(jar_b64, langs, favicon_b64, head_extra='', art=None):
     html = (root / 'src/shell.html').read_text()
     for tag, f in SCRIPTS:
         html = html.replace('/*%s*/' % tag, (root / 'src' / f).read_text())
     html = html.replace('/*JAR*/', jar_b64).replace('/*ICON*/', favicon_b64).replace('/*LANGS*/', json.dumps(langs))
+    html = html.replace('/*ARTPACK*/', json.dumps(art or {}))
     if head_extra:
         html = html.replace('</head>', head_extra + '\n</head>', 1)
     return html
@@ -30,7 +37,8 @@ def single():
     icon = base64.b64encode((root / 'icons/favicon.png').read_bytes()).decode()
     out = root / 'dist/gangstar.html'
     out.parent.mkdir(exist_ok=True)
-    out.write_text(assemble(base64.b64encode(jar).decode(), langs, icon))
+    art = {'art/' + p.name: base64.b64encode(p.read_bytes()).decode() for p in art_files()}
+    out.write_text(assemble(base64.b64encode(jar).decode(), langs, icon, art=art))
     print(out, out.stat().st_size)
 
 
@@ -71,6 +79,8 @@ def app():
             z.write(jarp, 'gangstar.jar')
             for p in sorted((root / 'lang').glob('o_*.bin')):
                 z.write(p, 'lang/' + p.name)
+            for p in art_files():
+                z.write(p, 'art/' + p.name)
         print('data package ->', out, out.stat().st_size)
 
 

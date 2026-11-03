@@ -40,6 +40,8 @@
   #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 12px; background: rgba(0,0,0,.82); text-align: center; padding: 20px; cursor: pointer; }
   #overlay.hidden { display: none; }
+  #overlay.art { justify-content: flex-end; padding-bottom: 12%; }
+  #overlay.art b { font-size: 20px; text-shadow: 0 2px 8px #000; } #overlay.art span { color: #ddd; text-shadow: 0 1px 4px #000; }
   #overlay b { font-size: 18px; } #overlay span { color: var(--muted); font-size: 13px; }
   .below { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; }
 
@@ -264,6 +266,7 @@
     <h3>Imagen</h3>
     <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave (cuadros intermedios a la frecuencia de tu pantalla)</label>
     <label class="chk"><input type="checkbox" id="optQuick"> Respuesta rápida (el juego reacciona apenas tocás y la imagen va medio cuadro adelante; menos retraso al moverte)</label>
+    <label class="chk"><input type="checkbox" id="optTurn"> Giro suave de los autos (entre los 16 dibujos del auto, lo va girando de a poco)</label>
     <label class="chk"><input type="checkbox" id="optVib"> Vibración</label>
     <label class="chk"><input type="checkbox" id="optSatMap"> Mapa satelital (el mapa de la pausa dibujado con la ciudad real; también se cambia con el botón 🛰 en el mapa)</label>
     <label class="chk"><input type="checkbox" id="optSatRadar"> Radar satelital (las calles alrededor tuyo dentro del radar)</label>
@@ -1833,13 +1836,22 @@ const MIDP = (() => {
     const dw = tr >= 4 ? h : w, dh = tr >= 4 ? w : h;
     [x, y] = anchorImg(x + g.tx, y + g.ty, dw, dh, anchor);
     touch(g, x, y, dw, dh);
-    const ctx = g.ctx;
-    if (tr === 0) { ctx.drawImage(img.canvas, sx, sy, w, h, x, y, w, h); return; }
+    if (state.measure) { state.measure.push(x, y, x + dw, y + dh); return; }
+    const ctx = g.ctx, r = state.rotate;
+    if (tr === 0 && !r) { ctx.drawImage(img.canvas, sx, sy, w, h, x, y, w, h); return; }
+    if (r) rotateAbout(ctx, r); else ctx.setTransform(1, 0, 0, 1, 0, 0);
     const m = TR[tr] || TR[0];
     const e = m[4] === 'w' ? w : m[4] === 'h' ? h : 0, f = m[5] === 'w' ? w : m[5] === 'h' ? h : 0;
-    ctx.setTransform(m[0], m[1], m[2], m[3], x + e, y + f);
+    ctx.transform(m[0], m[1], m[2], m[3], x + e, y + f);
     ctx.drawImage(img.canvas, sx, sy, w, h, 0, 0, w, h);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  // state.rotate = { x, y, a }: image drawing turns by a radians around (x, y) (image coordinates);
+  // state.measure = []: image drawing only records where it would land (x1, y1, x2, y2, ...).
+  // Used by the port to turn a car smoothly between two of its 16 pre-drawn directions.
+  function rotateAbout(ctx, r) {
+    const px = r.x, py = r.y, c = Math.cos(r.a), sn = Math.sin(r.a);
+    ctx.setTransform(c, sn, -sn, c, px - c * px + sn * py, py - sn * px - c * py);
   }
   const rgbCache = new Map();
   function drawString(g, s, x, y, a) {
@@ -1923,7 +1935,9 @@ const MIDP = (() => {
         if (img === null) NPE();
         if (!applyClip(g)) return;
         const [dx, dy] = anchorImg(x + g.tx, y + g.ty, img.w, img.h, a);
+        if (state.measure) { state.measure.push(dx, dy, dx + img.w, dy + img.h); return; }
         touch(g, dx, dy, img.w, img.h);
+        if (state.rotate) { rotateAbout(g.ctx, state.rotate); g.ctx.drawImage(img.canvas, dx, dy); g.ctx.setTransform(1, 0, 0, 1, 0, 0); return; }
         g.ctx.drawImage(img.canvas, dx, dy);
       }),
       'drawRegion(Ljavax/microedition/lcdui/Image;IIIIIIII)V': G((g, img, sx, sy, w, h, tr, x, y, a) => {
@@ -1932,6 +1946,7 @@ const MIDP = (() => {
       }),
       'drawRGB([IIIIIIIZ)V': G((g, rgb, off, scan, x, y, w, h, alpha) => {
         if (w <= 0 || h <= 0 || !applyClip(g)) return;
+        if (state.measure) { state.measure.push(x + g.tx, y + g.ty, x + g.tx + w, y + g.ty + h); return; }
         // Sprites are decoded to ARGB every frame; identical pixel blocks repeat, so cache them as canvases.
         let h1 = 0x811c9dc5 ^ w, h2 = (h * 2654435761) | (alpha ? 1 : 0);
         for (let yy = 0; yy < h; yy++) {
@@ -1948,6 +1963,7 @@ const MIDP = (() => {
           if (rgbCache.size > 4000) rgbCache.delete(rgbCache.keys().next().value);
         }
         touch(g, x + g.tx, y + g.ty, w, h);
+        if (state.rotate) { rotateAbout(g.ctx, state.rotate); g.ctx.drawImage(c, x + g.tx, y + g.ty); g.ctx.setTransform(1, 0, 0, 1, 0, 0); return; }
         g.ctx.drawImage(c, x + g.tx, y + g.ty);
       }),
       'copyArea(IIIIIII)V': G((g, sx, sy, w, h, dx, dy, a) => {
@@ -2375,6 +2391,7 @@ const SoundEngine = (() => {
 'use strict';
 
 const Wide = (() => {
+  let clearBands = false;   // menus: leave the side bands transparent (presentation art behind the canvas)
   // operand bytes after the opcode (0 for everything not listed); -1 = variable length
   const LEN = new Int8Array(256);
   for (const o of [0x10, 0x12, 0x15, 0x16, 0x17, 0x18, 0x19, 0x36, 0x37, 0x38, 0x39, 0x3a, 0xa9, 0xbc]) LEN[o] = 1;
@@ -2593,7 +2610,8 @@ const Wide = (() => {
       }
       if (Narrow.on) {                               // a menu drawn in the middle: black bands on the sides
         const dx = Narrow.dx;
-        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, dx, 320); ctx.fillRect(dx + 240, 0, W - dx - 240, 320);
+        if (clearBands) { ctx.clearRect(0, 0, dx, 320); ctx.clearRect(dx + 240, 0, W - dx - 240, 320); }   // art behind
+        else { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, dx, 320); ctx.fillRect(dx + 240, 0, W - dx - 240, 320); }
         ctx.drawImage(src, dx, 0, 240, 320, dx, 0, 240, 320);
         return;
       }
@@ -2612,7 +2630,7 @@ const Wide = (() => {
     return { init, get state() { return { top, bottom }; } };
   })();
 
-  return { apply, walk, constAt, patchClass, stats, Hud, get dx() { return Narrow.on ? Narrow.dx : 0; } };
+  return { apply, walk, constAt, patchClass, stats, Hud, get dx() { return Narrow.on ? Narrow.dx : 0; }, set clearBands(v) { clearBands = !!v; } };
 })();
 
 </script>
@@ -2641,7 +2659,7 @@ const Gangstar = (() => {
   let D = null, userClasses = [];
   let prev = null, cur = null, tickAt = 0, tickLen = 100, lastAlpha = -1;
   let active = false, inInterp = false, drawSnap = null;
-  const opts = { smooth: true, speed: 1, quick: true };
+  const opts = { smooth: true, speed: 1, quick: true, smoothTurn: true };
 
   // ----- game clock and tick pacing -----
   // The game's main loop (d.run) runs one tick, then spins on Thread.yield() until 100 ms of
@@ -2722,7 +2740,7 @@ const Gangstar = (() => {
   const driving = () => !!(D && D.sv.T === 7 && !D.sv.cA && D.sv.cH === 1);
   const hooks = { onDrivingChange: null };
 
-  const stats = { renders: 0, ticks: 0, renderMs: 0, realShown: 0 };
+  const stats = { renders: 0, ticks: 0, renderMs: 0, realShown: 0, turned: 0, lastTurn: 0 };
 
   function beforeStart() {
     for (const n of ['a', 'b', 'c', 'd']) {
@@ -2741,6 +2759,24 @@ const Gangstar = (() => {
     });
     const orig = (name) => Object.assign({}, D.methods.get(name), { fn: null });
     const bu = orig('bu()V'), bv = orig('bv()V');
+    // smooth turning: a car has 16 pre-drawn directions (b.i[1], 22.5° apart, counter-clockwise) and turns
+    // one step per tick, so with smooth movement the jump from one picture to the next showed. In the
+    // in-between frames the car (b.g draws an actor) is drawn turned by the part of the step still to come.
+    const turning = (origG, self) => {
+      const t = turnAngle(self);
+      if (!t) return origG(self);
+      // where the car lands on the screen: draw it once without drawing (this frame's state is thrown away
+      // afterwards anyway), then for real, turned around the centre of that
+      const box = MIDP.state.measure = [];
+      try { origG(self); } finally { MIDP.state.measure = null; }
+      if (!box.length) return origG(self);
+      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+      for (let i = 0; i < box.length; i += 4) { x1 = Math.min(x1, box[i]); y1 = Math.min(y1, box[i + 1]); x2 = Math.max(x2, box[i + 2]); y2 = Math.max(y2, box[i + 3]); }
+      stats.turned++; stats.lastTurn = t;
+      MIDP.state.rotate = { x: (x1 + x2) / 2, y: (y1 + y2) / 2, a: t };
+      try { return origG(self); } finally { MIDP.state.rotate = null; }
+    };
+    VM.hookMethod('b', 'g()V', turning);
     VM.hookMethod('b', 'B()V', (origB) => {
       if (inInterp) { VM.invokeSync(bu, []); VM.invokeSync(bv, []); }
       return origB();
@@ -2750,7 +2786,7 @@ const Gangstar = (() => {
 
   function snapshotPositions() {
     const m = new Map();
-    for (const o of actors) m.set(o, [o['b.a'], o['b.b']]);
+    for (const o of actors) m.set(o, [o['b.a'], o['b.b'], o['b.i'] ? o['b.i'][1] : 0]);
     return { actors: m, cam: [D.sv.fU, D.sv.fV] };
   }
 
@@ -2798,6 +2834,16 @@ const Gangstar = (() => {
   }
 
   const LEAD = 0.5;
+  let drawAlpha = 1;
+  function turnAngle(o) {
+    if (!inInterp || !opts.smoothTurn || !cur || !prev) return 0;
+    const c = cur.actors.get(o), p = prev.actors.get(o);
+    if (!c || !p) return 0;
+    let d = (c[2] - p[2]) & 15; if (d > 8) d -= 16;
+    if (d !== 1 && d !== -1) return 0;           // only one-step turns: cars (people turn in 45° steps)
+    const t = Math.min(drawAlpha, 1.25);
+    return (1 - t) * d * Math.PI / 8;            // canvas angles turn clockwise, directions counter-clockwise
+  }
   const lerp = (a, b, t, max) => (Math.abs(b - a) > max ? b : Math.round(a + (b - a) * t));
 
   // the live state only changes when Java code runs (VM.epoch), so it is captured once per change, not per frame
@@ -2807,6 +2853,7 @@ const Gangstar = (() => {
     const saved = liveSnap;
     try {
       restoreState(cur.state);
+      drawAlpha = alpha;
       for (const [o, c] of cur.actors) {
         const p = prev.actors.get(o);
         if (!p) continue;
@@ -3384,8 +3431,90 @@ const TouchMenu = (() => {
 
 </script>
 <script>
+// Promotional art (cover, city at sunset, characters) for the presentation around the game.
+//
+// The pictures come only from the private data package (art/*.webp), never from the public repository.
+// With them: the start screen gets the cover as its background, and on a wide screen the bands on both
+// sides of the menus (drawn in the original 240 px in the middle) show the city with a character on each
+// side, at the device's full resolution, behind the game canvas (whose bands are left transparent).
+'use strict';
+
+const Art = (() => {
+  const urls = {};
+  const has = (n) => !!urls[n];
+  function init(files) {
+    for (const k in files) {
+      const m = /^art\/(\w+)\.webp$/.exec(k);
+      if (m) urls[m[1]] = URL.createObjectURL(new Blob([files[k]], { type: 'image/webp' }));
+    }
+    return Object.keys(urls).length > 0;
+  }
+  const load = (n) => new Promise((res) => { if (!urls[n]) return res(null); const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = urls[n]; });
+
+  // start screen: the cover behind "tap to start"
+  // (on a wide screen: the cover in the middle, over the side backdrop)
+  function startScreen(el, sides) {
+    if (!has('cover')) return;
+    const shade = 'linear-gradient(rgba(0,0,0,.1), rgba(0,0,0,.45) 55%, rgba(0,0,0,.85))';
+    if (sides) {
+      el.style.backgroundImage = `${shade}, url(${urls.cover}), url(${sides})`;
+      el.style.backgroundSize = '100% 100%, auto 100%, 100% 100%';
+      el.style.backgroundPosition = 'center, center, center'; el.style.backgroundRepeat = 'no-repeat';
+    } else {
+      el.style.backgroundImage = `${shade}, url(${urls.cover})`;
+      el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center 20%';
+    }
+    el.classList.add('art');
+  }
+
+  // backdrop for a W x 320 screen: city across, a character in each side band, the middle left dark
+  async function backdrop(W, heightPx) {
+    if (W <= 240 || !has('city')) return null;
+    const H = Math.max(320, Math.min(1440, Math.round(heightPx))), k = H / 320, Wp = Math.round(W * k);
+    const c = document.createElement('canvas'); c.width = Wp; c.height = H;
+    const x = c.getContext('2d');
+    // two different characters (the pair is already on the cover and the title screen)
+    const cast = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6'].filter(has).sort(() => Math.random() - 0.5);
+    const [city, palms, left, right] = await Promise.all([load('city'), load('palms'), load(cast[0] || 'pair'), load(cast[1] || 'pair')]);
+    x.fillStyle = '#120a14'; x.fillRect(0, 0, Wp, H);
+    const cover = (img, dx, dy, dw, dh) => {         // draw img to fill the box, cropping the excess
+      const s = Math.max(dw / img.width, dh / img.height), w = img.width * s, h = img.height * s;
+      x.drawImage(img, dx + (dw - w) / 2, dy + (dh - h) / 2, w, h);
+    };
+    const band = Math.round((W - 240) / 2 * k);
+    // each band: the sunset city (palms when the band is narrow and tall), darker towards the game
+    for (const side of [0, 1]) {
+      const bx = side ? Wp - band : 0;
+      x.save(); x.beginPath(); x.rect(bx, 0, band, H); x.clip();
+      cover(band / H < 0.55 && palms ? palms : city, bx, 0, band, H);
+      const g = x.createLinearGradient(side ? bx : bx + band, 0, side ? bx + band : bx, 0);
+      g.addColorStop(0, 'rgba(10,6,14,.85)'); g.addColorStop(0.35, 'rgba(10,6,14,.35)'); g.addColorStop(1, 'rgba(10,6,14,.15)');
+      x.fillStyle = g; x.fillRect(bx, 0, band, H);
+      const v = x.createLinearGradient(0, 0, 0, H);
+      v.addColorStop(0, 'rgba(0,0,0,.25)'); v.addColorStop(0.6, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.55)');
+      x.fillStyle = v; x.fillRect(bx, 0, band, H);
+      // a character standing at the bottom, when there is room for it
+      const who = side ? right : left;
+      if (who && band > H * 0.28) {
+        const h = H * 0.92, w = who.width * h / who.height, s = Math.min(1, (band * 0.96) / w);
+        const dw = w * s, dh = h * s;
+        x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = H * 0.03;
+        x.drawImage(who, bx + (band - dw) / 2, H - dh, dw, dh);
+        x.shadowBlur = 0;
+      }
+      x.restore();
+    }
+    return await new Promise((res) => c.toBlob((b) => res(b ? URL.createObjectURL(b) : null), 'image/webp', 0.9));
+  }
+
+  return { init, has, startScreen, backdrop };
+})();
+
+</script>
+<script>
 const JAR_B64 = "";
 const LANG_PACKS = {};
+const ART_PACK = {};
 const PREFIX = 'gangstar:';
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -3407,6 +3536,7 @@ const PREFIX = 'gangstar:';
     padA: store.get('padA', 60),
     padPos: store.get('padPos', {}),
     quick: store.get('quick', true),
+    smoothTurn: store.get('smoothTurn', true),
     satRadar: store.get('satRadar', true),
     sound: store.get('sound', true),
     screen: store.get('screen', '240'),   // width the game is told about: 240 = original, wider shows more city
@@ -3675,6 +3805,8 @@ const PREFIX = 'gangstar:';
   $('optSmooth').onchange = (e) => { settings.smooth = e.target.checked; store.set('smooth', settings.smooth); Gangstar.opts.smooth = settings.smooth; };
   $('optQuick').checked = settings.quick; Gangstar.opts.quick = settings.quick;
   $('optQuick').onchange = (e) => { settings.quick = e.target.checked; store.set('quick', settings.quick); Gangstar.opts.quick = settings.quick; };
+  $('optTurn').checked = settings.smoothTurn; Gangstar.opts.smoothTurn = settings.smoothTurn;
+  $('optTurn').onchange = (e) => { settings.smoothTurn = e.target.checked; store.set('smoothTurn', settings.smoothTurn); Gangstar.opts.smoothTurn = settings.smoothTurn; };
   $('optVib').checked = settings.vib;
   $('optVib').onchange = (e) => { settings.vib = e.target.checked; MIDP.vibration = settings.vib; store.set('vib', settings.vib); };
   // ---------- satellite view ----------
@@ -3924,13 +4056,27 @@ const PREFIX = 'gangstar:';
   const dataPut = async (u8) => { const d = await dataDB(); return new Promise((res, rej) => { const tx = d.transaction('files', 'readwrite'); tx.objectStore('files').put(u8, 'pkg'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); };
   function filesFromPackage(u8) {
     const outer = unzip(u8);
-    if (outer['META-INF/MANIFEST.MF']) return { files: outer, langs: {} };     // a plain .jar
+    if (outer['META-INF/MANIFEST.MF']) return { files: outer, langs: {}, art: {} };     // a plain .jar
     if (!outer['gangstar.jar']) throw new Error('El archivo no contiene el juego');
-    const langs = {};
-    for (const k in outer) { const m = /^lang\/o_(\w+)\.bin$/.exec(k); if (m) langs[m[1]] = outer[k]; }
-    return { files: unzip(outer['gangstar.jar']), langs };
+    const langs = {}, art = {};
+    for (const k in outer) { const m = /^lang\/o_(\w+)\.bin$/.exec(k); if (m) langs[m[1]] = outer[k]; if (k.startsWith('art/')) art[k] = outer[k]; }
+    return { files: unzip(outer['gangstar.jar']), langs, art };
   }
-  function start(files, langs) {
+  // promotional art from the data package: cover on the start screen, city and characters beside menus
+  function presentation(art) {
+    if (!Art.init(art || {})) return;
+    Art.startScreen($('overlay'));
+    if (MIDP.SW <= 240) return;
+    const sw = $('screenWrap');
+    Art.backdrop(MIDP.SW, Math.max(sw.clientHeight, 320) * devicePixelRatio).then((url) => {
+      if (!url) return;
+      sw.style.backgroundImage = `url(${url})`; sw.style.backgroundSize = '100% 100%';
+      Wide.clearBands = true;
+      Art.startScreen($('overlay'), url);
+    });
+  }
+  function start(files, langs, art) {
+    presentation(art);
     if (langs[settings.lang]) files['o'] = langs[settings.lang];
     MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: () => { Wide.apply(SCREEN_W); Gangstar.beforeStart(); Satellite.beforeStart(); TouchMenu.beforeStart(); Gangstar.setSpeed(+settings.speed); } });
   }
@@ -3953,14 +4099,15 @@ const PREFIX = 'gangstar:';
   (async () => {
     if (JAR_B64.length > 100) {
       const langs = {}; for (const k in LANG_PACKS) langs[k] = unb64(LANG_PACKS[k]);
-      start(unzip(unb64(JAR_B64)), langs);
+      const art = {}; for (const k in ART_PACK) art[k] = unb64(ART_PACK[k]);
+      start(unzip(unb64(JAR_B64)), langs, art);
     } else {
       $('dataRow').hidden = false;
       $('dataChange').onclick = async () => { menu.close(); const pkg = await pickData(); location.reload(); };
       let pkg = null;
       try { const u8 = await dataGet(); if (u8) pkg = filesFromPackage(u8); } catch (e) {}
       if (!pkg) pkg = await pickData();
-      start(pkg.files, pkg.langs);
+      start(pkg.files, pkg.langs, pkg.art);
     }
   })();
   window.__vm = VM; window.__midp = MIDP; window.__ss = SaveState; window.__settings = settings; window.__autoSave = autoSave;

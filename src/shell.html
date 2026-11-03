@@ -40,6 +40,8 @@
   #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 12px; background: rgba(0,0,0,.82); text-align: center; padding: 20px; cursor: pointer; }
   #overlay.hidden { display: none; }
+  #overlay.art { justify-content: flex-end; padding-bottom: 12%; }
+  #overlay.art b { font-size: 20px; text-shadow: 0 2px 8px #000; } #overlay.art span { color: #ddd; text-shadow: 0 1px 4px #000; }
   #overlay b { font-size: 18px; } #overlay span { color: var(--muted); font-size: 13px; }
   .below { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; }
 
@@ -362,8 +364,12 @@
 /*TOUCHMENU*/
 </script>
 <script>
+/*ARTJS*/
+</script>
+<script>
 const JAR_B64 = "/*JAR*/";
 const LANG_PACKS = /*LANGS*/;
+const ART_PACK = /*ARTPACK*/;
 const PREFIX = 'gangstar:';
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -905,13 +911,27 @@ const PREFIX = 'gangstar:';
   const dataPut = async (u8) => { const d = await dataDB(); return new Promise((res, rej) => { const tx = d.transaction('files', 'readwrite'); tx.objectStore('files').put(u8, 'pkg'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); };
   function filesFromPackage(u8) {
     const outer = unzip(u8);
-    if (outer['META-INF/MANIFEST.MF']) return { files: outer, langs: {} };     // a plain .jar
+    if (outer['META-INF/MANIFEST.MF']) return { files: outer, langs: {}, art: {} };     // a plain .jar
     if (!outer['gangstar.jar']) throw new Error('El archivo no contiene el juego');
-    const langs = {};
-    for (const k in outer) { const m = /^lang\/o_(\w+)\.bin$/.exec(k); if (m) langs[m[1]] = outer[k]; }
-    return { files: unzip(outer['gangstar.jar']), langs };
+    const langs = {}, art = {};
+    for (const k in outer) { const m = /^lang\/o_(\w+)\.bin$/.exec(k); if (m) langs[m[1]] = outer[k]; if (k.startsWith('art/')) art[k] = outer[k]; }
+    return { files: unzip(outer['gangstar.jar']), langs, art };
   }
-  function start(files, langs) {
+  // promotional art from the data package: cover on the start screen, city and characters beside menus
+  function presentation(art) {
+    if (!Art.init(art || {})) return;
+    Art.startScreen($('overlay'));
+    if (MIDP.SW <= 240) return;
+    const sw = $('screenWrap');
+    Art.backdrop(MIDP.SW, Math.max(sw.clientHeight, 320) * devicePixelRatio).then((url) => {
+      if (!url) return;
+      sw.style.backgroundImage = `url(${url})`; sw.style.backgroundSize = '100% 100%';
+      Wide.clearBands = true;
+      Art.startScreen($('overlay'), url);
+    });
+  }
+  function start(files, langs, art) {
+    presentation(art);
     if (langs[settings.lang]) files['o'] = langs[settings.lang];
     MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: () => { Wide.apply(SCREEN_W); Gangstar.beforeStart(); Satellite.beforeStart(); TouchMenu.beforeStart(); Gangstar.setSpeed(+settings.speed); } });
   }
@@ -934,14 +954,15 @@ const PREFIX = 'gangstar:';
   (async () => {
     if (JAR_B64.length > 100) {
       const langs = {}; for (const k in LANG_PACKS) langs[k] = unb64(LANG_PACKS[k]);
-      start(unzip(unb64(JAR_B64)), langs);
+      const art = {}; for (const k in ART_PACK) art[k] = unb64(ART_PACK[k]);
+      start(unzip(unb64(JAR_B64)), langs, art);
     } else {
       $('dataRow').hidden = false;
       $('dataChange').onclick = async () => { menu.close(); const pkg = await pickData(); location.reload(); };
       let pkg = null;
       try { const u8 = await dataGet(); if (u8) pkg = filesFromPackage(u8); } catch (e) {}
       if (!pkg) pkg = await pickData();
-      start(pkg.files, pkg.langs);
+      start(pkg.files, pkg.langs, pkg.art);
     }
   })();
   window.__vm = VM; window.__midp = MIDP; window.__ss = SaveState; window.__settings = settings; window.__autoSave = autoSave;
