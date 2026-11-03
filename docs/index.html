@@ -1837,21 +1837,27 @@ const MIDP = (() => {
     [x, y] = anchorImg(x + g.tx, y + g.ty, dw, dh, anchor);
     touch(g, x, y, dw, dh);
     if (state.measure) { state.measure.push(x, y, x + dw, y + dh); return; }
-    const ctx = g.ctx, r = state.rotate;
-    if (tr === 0 && !r) { ctx.drawImage(img.canvas, sx, sy, w, h, x, y, w, h); return; }
-    if (r) rotateAbout(ctx, r); else ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const L = state.layer, ctx = L ? L.ctx : g.ctx;
+    if (L) { x -= L.ox; y -= L.oy; }
+    if (tr === 0) { ctx.drawImage(img.canvas, sx, sy, w, h, x, y, w, h); return; }
     const m = TR[tr] || TR[0];
     const e = m[4] === 'w' ? w : m[4] === 'h' ? h : 0, f = m[5] === 'w' ? w : m[5] === 'h' ? h : 0;
-    ctx.transform(m[0], m[1], m[2], m[3], x + e, y + f);
+    ctx.setTransform(m[0], m[1], m[2], m[3], x + e, y + f);
     ctx.drawImage(img.canvas, sx, sy, w, h, 0, 0, w, h);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
-  // state.rotate = { x, y, a }: image drawing turns by a radians around (x, y) (image coordinates);
-  // state.measure = []: image drawing only records where it would land (x1, y1, x2, y2, ...).
-  // Used by the port to turn a car smoothly between two of its 16 pre-drawn directions.
-  function rotateAbout(ctx, r) {
-    const px = r.x, py = r.y, c = Math.cos(r.a), sn = Math.sin(r.a);
-    ctx.setTransform(c, sn, -sn, c, px - c * px + sn * py, py - sn * px - c * py);
+  // Used by the port to turn a car smoothly between two of its 16 pre-drawn directions:
+  // state.measure = []: image drawing only records where it would land (x1, y1, x2, y2, ...);
+  // state.layer = { ctx, ox, oy }: image drawing goes to that canvas instead, shifted by (-ox, -oy), and
+  // drawLayer() then puts the whole layer on the screen turned at once. Turning the pieces one by one made
+  // overlapping see-through parts (headlight beams at night) blend differently from frame to frame.
+  function drawLayer(go, canvas, x, y, cx, cy, a) {
+    const g = go.g;
+    if (!applyClip(g)) return;
+    const ctx = g.ctx, c = Math.cos(a), sn = Math.sin(a);
+    ctx.setTransform(c, sn, -sn, c, cx - c * cx + sn * cy, cy - sn * cx - c * cy);
+    ctx.drawImage(canvas, x, y);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
   const rgbCache = new Map();
   function drawString(g, s, x, y, a) {
@@ -1937,7 +1943,7 @@ const MIDP = (() => {
         const [dx, dy] = anchorImg(x + g.tx, y + g.ty, img.w, img.h, a);
         if (state.measure) { state.measure.push(dx, dy, dx + img.w, dy + img.h); return; }
         touch(g, dx, dy, img.w, img.h);
-        if (state.rotate) { rotateAbout(g.ctx, state.rotate); g.ctx.drawImage(img.canvas, dx, dy); g.ctx.setTransform(1, 0, 0, 1, 0, 0); return; }
+        if (state.layer) { state.layer.ctx.drawImage(img.canvas, dx - state.layer.ox, dy - state.layer.oy); return; }
         g.ctx.drawImage(img.canvas, dx, dy);
       }),
       'drawRegion(Ljavax/microedition/lcdui/Image;IIIIIIII)V': G((g, img, sx, sy, w, h, tr, x, y, a) => {
@@ -1963,7 +1969,7 @@ const MIDP = (() => {
           if (rgbCache.size > 4000) rgbCache.delete(rgbCache.keys().next().value);
         }
         touch(g, x + g.tx, y + g.ty, w, h);
-        if (state.rotate) { rotateAbout(g.ctx, state.rotate); g.ctx.drawImage(c, x + g.tx, y + g.ty); g.ctx.setTransform(1, 0, 0, 1, 0, 0); return; }
+        if (state.layer) { state.layer.ctx.drawImage(c, x + g.tx - state.layer.ox, y + g.ty - state.layer.oy); return; }
         g.ctx.drawImage(c, x + g.tx, y + g.ty);
       }),
       'copyArea(IIIIIII)V': G((g, sx, sy, w, h, dx, dy, a) => {
@@ -2113,7 +2119,7 @@ const MIDP = (() => {
     state, get SW() { return SW; }, get SH() { return SH; },
     setScreen(w, h) { SW = w; SH = h; },
     present(img) { blit(img || state.backImage); },
-    newGraphics, makeImage,
+    newGraphics, makeImage, drawLayer,
     // fill a rectangle on a Java Graphics with a given colour, leaving its current colour as it was
     fillRectWith(go, x, y, w, h, color) {
       const g = go.g, c = g.color, css = g.css;
@@ -2762,6 +2768,7 @@ const Gangstar = (() => {
     // smooth turning: a car has 16 pre-drawn directions (b.i[1], 22.5° apart, counter-clockwise) and turns
     // one step per tick, so with smooth movement the jump from one picture to the next showed. In the
     // in-between frames the car (b.g draws an actor) is drawn turned by the part of the step still to come.
+    const layer = document.createElement('canvas'), lctx = layer.getContext('2d');
     const turning = (origG, self) => {
       const t = turnAngle(self);
       if (!t) return origG(self);
@@ -2773,8 +2780,16 @@ const Gangstar = (() => {
       let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
       for (let i = 0; i < box.length; i += 4) { x1 = Math.min(x1, box[i]); y1 = Math.min(y1, box[i + 1]); x2 = Math.max(x2, box[i + 2]); y2 = Math.max(y2, box[i + 3]); }
       stats.turned++; stats.lastTurn = t;
-      MIDP.state.rotate = { x: (x1 + x2) / 2, y: (y1 + y2) / 2, a: t };
-      try { return origG(self); } finally { MIDP.state.rotate = null; }
+      // draw the car, lights included, unturned into its own layer, then put the layer down turned as a whole
+      const pad = 2, ox = Math.floor(x1) - pad, oy = Math.floor(y1) - pad;
+      const w = Math.ceil(x2) - ox + pad, h = Math.ceil(y2) - oy + pad;
+      if (layer.width < w || layer.height < h) { layer.width = Math.max(layer.width, w); layer.height = Math.max(layer.height, h); }
+      lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.clearRect(0, 0, layer.width, layer.height); lctx.imageSmoothingEnabled = false;
+      MIDP.state.layer = { ctx: lctx, ox, oy };
+      let r;
+      try { r = origG(self); } finally { MIDP.state.layer = null; }
+      MIDP.drawLayer(D.sv.am, layer, ox, oy, (x1 + x2) / 2, (y1 + y2) / 2, t);
+      return r;
     };
     VM.hookMethod('b', 'g()V', turning);
     VM.hookMethod('b', 'B()V', (origB) => {

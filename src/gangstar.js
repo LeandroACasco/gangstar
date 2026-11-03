@@ -125,6 +125,7 @@ const Gangstar = (() => {
     // smooth turning: a car has 16 pre-drawn directions (b.i[1], 22.5° apart, counter-clockwise) and turns
     // one step per tick, so with smooth movement the jump from one picture to the next showed. In the
     // in-between frames the car (b.g draws an actor) is drawn turned by the part of the step still to come.
+    const layer = document.createElement('canvas'), lctx = layer.getContext('2d');
     const turning = (origG, self) => {
       const t = turnAngle(self);
       if (!t) return origG(self);
@@ -136,8 +137,16 @@ const Gangstar = (() => {
       let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
       for (let i = 0; i < box.length; i += 4) { x1 = Math.min(x1, box[i]); y1 = Math.min(y1, box[i + 1]); x2 = Math.max(x2, box[i + 2]); y2 = Math.max(y2, box[i + 3]); }
       stats.turned++; stats.lastTurn = t;
-      MIDP.state.rotate = { x: (x1 + x2) / 2, y: (y1 + y2) / 2, a: t };
-      try { return origG(self); } finally { MIDP.state.rotate = null; }
+      // draw the car, lights included, unturned into its own layer, then put the layer down turned as a whole
+      const pad = 2, ox = Math.floor(x1) - pad, oy = Math.floor(y1) - pad;
+      const w = Math.ceil(x2) - ox + pad, h = Math.ceil(y2) - oy + pad;
+      if (layer.width < w || layer.height < h) { layer.width = Math.max(layer.width, w); layer.height = Math.max(layer.height, h); }
+      lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.clearRect(0, 0, layer.width, layer.height); lctx.imageSmoothingEnabled = false;
+      MIDP.state.layer = { ctx: lctx, ox, oy };
+      let r;
+      try { r = origG(self); } finally { MIDP.state.layer = null; }
+      MIDP.drawLayer(D.sv.am, layer, ox, oy, (x1 + x2) / 2, (y1 + y2) / 2, t);
+      return r;
     };
     VM.hookMethod('b', 'g()V', turning);
     VM.hookMethod('b', 'B()V', (origB) => {
