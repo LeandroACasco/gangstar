@@ -116,7 +116,16 @@
   kbd { background: var(--key); border-radius: 4px; padding: 1px 6px; font: 12px ui-monospace, monospace; }
   textarea { width: 100%; height: 110px; background: #0e0e10; color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: 11px ui-monospace, monospace; padding: 8px; user-select: text; -webkit-user-select: text; }
   label.chk { display: flex; gap: 8px; align-items: center; font-size: 14px; }
-  .slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 520px) { .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  #resume { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); z-index: 3; width: min(92%, 340px);
+    background: rgba(20,20,26,.94); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; gap: 10px; align-items: center; }
+  #resume img { width: 64px; height: 85px; object-fit: cover; border-radius: 6px; image-rendering: pixelated; flex: none; }
+  #resume .t { flex: 1; min-width: 0; font-size: 13px; } #resume .t b { display: block; margin-bottom: 2px; }
+  #resume .t span { color: var(--muted); font-size: 12px; }
+  #resume .b { display: flex; flex-direction: column; gap: 6px; }
+  #resume button { border: none; border-radius: 9px; padding: 8px 12px; font: 600 13px system-ui; cursor: pointer; background: #34343c; color: var(--text); }
+  #resume button.go { background: var(--accent); color: #111; }
   .slot { min-width: 0; background: var(--key); border: 1px solid var(--line); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
   .slot .th { aspect-ratio: 3 / 4; background: #0c0c0e; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; overflow: hidden; }
   .slot .th img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
@@ -148,6 +157,8 @@
       <div id="screenWrap">
         <canvas id="screen" width="240" height="320"></canvas>
         <button id="satBtn" hidden>🛰 Satelital</button>
+        <div id="resume" hidden><img alt=""><div class="t"><b>¿Seguir donde estabas?</b><span></span></div>
+          <div class="b"><button class="go">Seguir</button><button class="no">Ahora no</button></div></div>
         <div id="overlay"><b>Tocá o hacé clic para empezar</b><span>(el navegador necesita un toque para activar el sonido)</span></div>
       </div>
       <div class="below" id="below"></div>
@@ -216,6 +227,7 @@
       <button class="btn" id="chMoney" style="flex:none;text-align:center">💵 +$10.000</button>
     </div>
     <h3>Partida</h3>
+    <label class="chk"><input type="checkbox" id="optAuto"> Guardado automático (cada 2 minutos de juego y al salir de la app; al volver a abrir te ofrece seguir ahí)</label>
     <p>La partida se guarda en el navegador de este dispositivo. Para seguir en otro (PC ↔ teléfono), exportala acá y cargala allá.</p>
     <div class="row">
       <button class="btn" id="expFile">💾 Guardar partida en archivo</button>
@@ -317,6 +329,7 @@ const PREFIX = 'gangstar:';
     vib: store.get('vib', true),
     fps: store.get('fps', false),
     satMap: store.get('satMap', true),
+    autosave: store.get('autosave', true),
     satRadar: store.get('satRadar', true),
     sound: store.get('sound', true),
     screen: store.get('screen', '240'),   // width the game is told about: 240 = original, wider shows more city
@@ -466,7 +479,11 @@ const PREFIX = 'gangstar:';
   addEventListener('orientationchange', () => setTimeout(layout, 200));
 
   // ---------- overlay / sound / fullscreen ----------
-  function hideOverlay() { $('overlay').classList.add('hidden'); SoundEngine.unlock(); }
+  function hideOverlay() {
+    const ov = $('overlay');
+    if (!ov.classList.contains('hidden')) { ov.classList.add('hidden'); setTimeout(() => offerResume(), 1500); }
+    SoundEngine.unlock();
+  }
   $('overlay').addEventListener('pointerdown', (e) => { e.preventDefault(); hideOverlay(); });
   document.addEventListener('pointerdown', () => SoundEngine.unlock(), { capture: true });
   function applySound() { SoundEngine.setEnabled(settings.sound); $('btnSound').textContent = settings.sound ? '🔊' : '🔇'; }
@@ -589,9 +606,48 @@ const PREFIX = 'gangstar:';
 
   // ---------- pause when hidden ----------
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { MIDP.visibility(false); SoundEngine.suspend(); }
+    if (document.hidden) { autoSave(); MIDP.visibility(false); SoundEngine.suspend(); }
     else { SoundEngine.resume(); MIDP.visibility(true); }
   });
+
+  // ---------- automatic save ----------
+  // A full save state in its own slot ('auto') every 2 minutes of gameplay and when the app goes to the
+  // background: on a phone that is often the last chance, the browser may throw the page away later.
+  let autoBusy = false, autoLast = Date.now();
+  async function autoSave() {
+    if (!settings.autosave || autoBusy) return;
+    const D = VM.classes.get('d');
+    if (!D || D.sv.T !== 7 || SaveState.canSave()) return;     // gameplay only, at a safe point
+    autoBusy = true;
+    try { await SaveState.saveSlot('auto', settings.lang); autoLast = Date.now(); } catch (e) {} finally { autoBusy = false; }
+  }
+  setInterval(() => { if (!document.hidden && !menu.open && !statesDlg.open && Date.now() - autoLast > 120000) autoSave(); }, 10000);
+  $('optAuto').checked = settings.autosave;
+  $('optAuto').onchange = (e) => { settings.autosave = e.target.checked; store.set('autosave', settings.autosave); };
+  addEventListener('pagehide', () => autoSave());
+
+  // "continue where you were": offered once, when the game is up after the first touch
+  let resumeOffered = false;
+  async function offerResume() {
+    if (resumeOffered || !settings.autosave) return;
+    resumeOffered = true;
+    let r = null;
+    try { r = (await SaveState.listSlots()).auto; } catch (e) {}
+    if (!r || (r.w && r.w !== MIDP.SW)) return;
+    const card = $('resume');
+    card.querySelector('img').src = r.thumb;
+    const mins = Math.round((Date.now() - r.date) / 60000);
+    card.querySelector('span').textContent = 'Guardado ' + (mins < 1 ? 'recién' : mins < 60 ? 'hace ' + mins + ' min' : fmtDate(r.date));
+    card.hidden = false;
+    const close = () => { card.hidden = true; };
+    card.querySelector('.no').onclick = close;
+    card.querySelector('.go').onclick = async () => {
+      close();
+      for (let i = 0; i < 40 && SaveState.canSave(); i++) await new Promise((res) => setTimeout(res, 150));  // wait for a safe point
+      try { await SaveState.loadSlot('auto'); toast('Seguís donde estabas ✔'); } catch (e) { toast('No se pudo cargar: ' + e.message); }
+    };
+    setTimeout(close, 20000);
+  }
 
   // ---------- cheats ----------
   const cheatIds = { chHealth: 'health', chAmmo: 'ammo', chPolice: 'noPolice' };
@@ -610,11 +666,12 @@ const PREFIX = 'gangstar:';
     try { slots = await SaveState.listSlots(); } catch (e) {}
     const can = SaveState.canSave();
     $('slotList').innerHTML = '';
-    for (const n of [1, 2, 3]) {
+    for (const n of ['auto', 1, 2, 3]) {
       const r = slots[n], el = document.createElement('div'); el.className = 'slot';
-      el.innerHTML = `<div class="th">${r ? `<img src="${r.thumb}">` : 'vacía'}</div><b>Ranura ${n}${n === 1 ? ' · rápida' : ''}</b>
-        <span>${r ? fmtDate(r.date) : (can || '&nbsp;')}</span>
-        <button class="save" ${can ? 'disabled title="' + can + '"' : ''}>Guardar acá</button>
+      const auto = n === 'auto', name = auto ? 'Automático' : 'Ranura ' + n + (n === 1 ? ' · rápida' : '');
+      el.innerHTML = `<div class="th">${r ? `<img src="${r.thumb}">` : 'vacía'}</div><b>${name}</b>
+        <span>${r ? fmtDate(r.date) : auto ? (settings.autosave ? 'se guarda solo' : 'desactivado') : (can || '&nbsp;')}</span>
+        <button class="save" ${can || auto ? 'disabled title="' + (auto ? 'Se guarda solo' : can) + '"' : ''}>${auto ? 'Automático' : 'Guardar acá'}</button>
         <button class="load" ${r ? '' : 'disabled'}>Cargar</button>
         <div class="more"><button class="exp" title="Exportar a archivo" ${r ? '' : 'disabled'}>⬇</button><button class="imp" title="Importar desde archivo">⬆</button><button class="del" title="Borrar" ${r ? '' : 'disabled'}>✕</button></div>`;
       el.querySelector('.save').onclick = async () => {
@@ -622,16 +679,17 @@ const PREFIX = 'gangstar:';
         try { await SaveState.saveSlot(n, settings.lang); toast('Guardado en ranura ' + n + ' ✔'); renderSlots(); } catch (e) { toast(e.message); }
       };
       el.querySelector('.load').onclick = async () => {
-        try { await SaveState.loadSlot(n); statesDlg.close(); toast('Ranura ' + n + ' cargada ✔'); } catch (e) { toast('No se pudo cargar: ' + e.message); }
+        try { await SaveState.loadSlot(n); statesDlg.close(); toast(name + ' cargada ✔'); } catch (e) { toast('No se pudo cargar: ' + e.message); }
       };
       el.querySelector('.exp').onclick = async () => {
         const blob = await SaveState.exportSlot(n);
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = 'gangstar-ranura' + n + '-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.gss';
+        a.download = 'gangstar-' + (auto ? 'auto' : 'ranura' + n) + '-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.gss';
         document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
       };
       el.querySelector('.imp').onclick = () => { pendingImport = n; $('stateIn').click(); };
-      el.querySelector('.del').onclick = async () => { if (confirm('¿Borrar la ranura ' + n + '?')) { await SaveState.deleteSlot(n); renderSlots(); } };
+      if (auto) el.querySelector('.imp').disabled = true;
+      el.querySelector('.del').onclick = async () => { if (confirm('¿Borrar ' + name + '?')) { await SaveState.deleteSlot(n); renderSlots(); } };
       $('slotList').appendChild(el);
     }
   }
@@ -740,7 +798,7 @@ const PREFIX = 'gangstar:';
       start(pkg.files, pkg.langs);
     }
   })();
-  window.__vm = VM; window.__midp = MIDP; window.__ss = SaveState; window.__settings = settings;
+  window.__vm = VM; window.__midp = MIDP; window.__ss = SaveState; window.__settings = settings; window.__autoSave = autoSave;
 })();
 </script>
 </body>

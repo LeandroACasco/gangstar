@@ -229,7 +229,7 @@ const SaveState = (() => {
   async function saveSlot(slot, lang) {
     const data = capture();
     const blob = await pack(data);
-    const rec = { slot, date: Date.now(), thumb: thumbnail(), blob, lang, size: blob.size };
+    const rec = { slot, date: Date.now(), thumb: thumbnail(), blob, lang, size: blob.size, w: MIDP.SW };
     await idb('readwrite', (s) => s.put(rec, slot));
     return rec;
   }
@@ -242,7 +242,7 @@ const SaveState = (() => {
   async function listSlots() {
     const all = await idb('readonly', (s) => s.getAll());
     const keys = await idb('readonly', (s) => s.getAllKeys());
-    const out = {}; (keys || []).forEach((k, i) => { const r = all[i]; out[k] = { date: r.date, thumb: r.thumb, size: r.size, lang: r.lang }; });
+    const out = {}; (keys || []).forEach((k, i) => { const r = all[i]; out[k] = { date: r.date, thumb: r.thumb, size: r.size, lang: r.lang, w: r.w }; });
     return out;
   }
   async function deleteSlot(slot) { await idb('readwrite', (s) => s.delete(slot)); }
