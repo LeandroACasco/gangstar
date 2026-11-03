@@ -212,6 +212,9 @@ const Gangstar = (() => {
       else if (n === 'java/util/Random') randoms.push(o);
     }
     prev = cur = null; drawSnap = null; active = false; tickAt = 0; liveSnap = null;
+    // the map buffer image may come from an older version with another size (see Wide): rebuild it,
+    // the next map refresh (d.Z -> d.Y) creates it again at the current size and redraws it whole
+    if (D) { D.sv.ho = null; D.sv.fL = -1; }
   }
 
   return { beforeStart, adopt, opts, setSpeed, driving, hooks, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };

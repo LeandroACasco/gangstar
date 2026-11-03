@@ -2349,6 +2349,7 @@ const Wide = (() => {
     let idx = VM.K.findIndex((v, i) => v === value && orig[i] === was);
     if (idx < 0) { idx = VM.K.length; VM.K.push(value); orig.push(was); }
     if (idx > 255) throw new Error('too many patched constants');
+    if (Object.values(BUF).includes(curMethod)) keepWide.add(idx);
     const len = code[pc] === 0x11 || code[pc] === 0x13 ? 3 : 2;
     code[pc] = 0xcb; code[pc + 1] = idx;
     if (len === 3) code[pc + 2] = 0x00; // nop
@@ -2380,6 +2381,7 @@ const Wide = (() => {
     curCp = cls.cp;
     for (const m of cls.methods.values()) {
       if (!m.code || (keep && !keep.includes(m.key))) continue;
+      curMethod = m.key;
       const mm = per[m.key] === false ? null : Object.assign({}, map, per[m.key]);
       if (!mm) continue;
       const colors = colorArgs(m.code, cls.cp);
@@ -2393,20 +2395,45 @@ const Wide = (() => {
     }
   }
 
+  // ----- map buffer with a spare column and row -----
+  // The city is drawn from a wrap-around image (d.ho) holding exactly the tiles on screen plus one:
+  // 264x312 = 11x13 tiles. Scrolling one tile redraws the new column over the slot of the one that just
+  // left. The in-between frames of "smooth movement" (gangstar.js) show the camera up to one tick behind,
+  // so the edge opposite to the movement was taken from a slot that already held the other side: a strip
+  // of wrong tiles there. The image gets one more column and row as the wrap-around size (u(II) wraps tile
+  // positions in it, b(Graphics) copies it to the screen, the a(...) drawers wrap sprites into it), while
+  // Z() still redraws only the visible 11 (or more on a wide screen) by 13, so the tiles that just left
+  // stay valid in the spare slot. Applies to every width, the original one included.
+  const BUF = { Y: 'Y()V', D: 'd(IIII)V', U: 'u(II)V', BLIT: 'b(Ljavax/microedition/lcdui/Graphics;)V',
+    A1: 'a(La;IIIII)V', A2: 'a(IIIIII)V' };
+  function bufferPer(W) {
+    const BW = W + 48, BH = 312 + 24, wrap = { 264: BW, 312: BH };
+    return {
+      [BUF.Y]: { '264@6': BW, '312@9': BH },         // createImage; the 264 further down is the radar map
+      [BUF.D]: wrap, [BUF.BLIT]: wrap, [BUF.A1]: wrap, [BUF.A2]: wrap,
+      [BUF.U]: Object.assign({ '11@72': BW / 24, '13@81': BH / 24 }, wrap),   // tile -> buffer slot
+    };
+  }
+  const keepWide = new Set();                       // K entries that menus must not swap back (Narrow)
+  let curMethod = '';
+
   function apply(W) {
-    if (W === 240 && !globalThis.__forcePatch) return;
-    const cols = (W + 24) / 24;                      // tile columns in the wrap-around map buffer
+    const cols = (W + 24) / 24;                      // tiles Z() redraws across the screen
+    if (W === 240 && !globalThis.__forcePatch) {     // original width: only the map buffer changes
+      patchClass('d', {}, bufferPer(W), Object.values(BUF));
+      for (const i of keepWide) orig[i] = VM.K[i];
+      return;
+    }
     const map = { 240: W, 239: W - 1, 120: W >> 1, 264: W + 24, 76800: W * 320,
       30720: (W >> 1) << 8, 61440: W << 8, 67584: (W + 24) << 8 };  // the same sizes in 24.8 fixed point
-    const per = {
+    const per = Object.assign({
       'b([B)[B': false,                              // data decompressor: its 240/256 are not screen sizes
       'Z()V': { 11: cols },                          // map buffer refresh: 11 = 264/24 columns
-      'u(II)V': { '11@72': cols },                   // tile -> buffer column (tile x mod 11)
       // the HUD keeps its original 240-wide layout; Hud below spreads it over the wider screen
       'j(Z)V': false,                                // HUD bar backgrounds
       'aP()V': { '240@687': 240, '240@751': 240 },   // bottom bar clip rectangles
       'aR()V': false,                                // radar
-    };
+    }, bufferPer(W));
     // right softkey label ("SALTAR", "ATRÁS") at x = 238, and the dialog text wrap width 236
     // (other 2xx constants nearby are text ids, not positions)
     const wrap = Object.fromEntries([302, 719, 1224, 1270, 1316].map((pc) => ['236@' + pc, W - 4]));
@@ -2417,6 +2444,7 @@ const Wide = (() => {
     if (dbg.per) for (const k in dbg.per) per[k] = dbg.per[k] === false ? false : Object.assign({}, per[k], dbg.per[k]);
     patchClass('d', map, per, dbg.keep || null);
     patchClass('a', { 240: W, 239: W - 1 });         // text renderer: default wrap width and right edge
+    for (const i of keepWide) orig[i] = VM.K[i];
     Narrow.init(W);
     Hud.init(W);
   }
@@ -2724,6 +2752,9 @@ const Gangstar = (() => {
       else if (n === 'java/util/Random') randoms.push(o);
     }
     prev = cur = null; drawSnap = null; active = false; tickAt = 0; liveSnap = null;
+    // the map buffer image may come from an older version with another size (see Wide): rebuild it,
+    // the next map refresh (d.Z -> d.Y) creates it again at the current size and redraws it whole
+    if (D) { D.sv.ho = null; D.sv.fL = -1; }
   }
 
   return { beforeStart, adopt, opts, setSpeed, driving, hooks, cheats, addMoney, stats, tracked, actors, _render: (a) => renderInterpolated(a) };
