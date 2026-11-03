@@ -209,8 +209,8 @@
     <div class="seg" id="segLang"><button data-v="es">Español</button><button data-v="en">English</button></div>
     <p>Cambiar el idioma reinicia el juego (la partida guardada se mantiene).</p>
     <h3>Pantalla</h3>
-    <div class="seg" id="segScreen"><button data-v="240">Original</button><button data-v="384">Ancha</button><button data-v="432">Panorámica</button><button data-v="576">Cine 16:9</button></div>
-    <p>Las pantallas más anchas muestran más ciudad a los costados. Cambiarla reinicia el juego; los guardados rápidos (ranuras) solo cargan en la pantalla en que se hicieron, la partida normal sí se mantiene.</p>
+    <div class="seg" id="segScreen"><button data-v="240">Original</button><button data-v="384">Ancha</button><button data-v="432">Panorámica</button><button data-v="576">Cine 16:9</button><button data-v="auto">Automática</button></div>
+    <p>Automática usa el ancho que llena la pantalla de este dispositivo acostado (por ejemplo 696 en un celular 19,5:9). Las pantallas más anchas muestran más ciudad a los costados. Cambiarla reinicia el juego; los guardados rápidos (ranuras) solo cargan en la pantalla en que se hicieron, la partida normal sí se mantiene.</p>
     <h3>Velocidad del juego</h3>
     <div class="seg" id="segSpeed"><button data-v="1">Normal</button><button data-v="1.25">Rápida ×1,25</button><button data-v="1.5">Muy rápida ×1,5</button></div>
     <h3>Imagen</h3>
@@ -340,8 +340,10 @@ const PREFIX = 'gangstar:';
   // (?w=NNN in the address overrides the setting, for testing)
   const SCREEN_W = (() => {
     const q = new URLSearchParams(location.search).get('w');
-    const w = +(q || settings.screen) || 240;
-    return Math.max(240, Math.min(576, Math.round(w / 24) * 24));  // multiple of 24: the map is built from 24 px tiles
+    // automatic: the width that fills this device held sideways (320 px tall)
+    const auto = () => 320 * Math.max(screen.width, screen.height) / Math.min(screen.width, screen.height);
+    const w = +(q || (settings.screen === 'auto' ? auto() : settings.screen)) || 240;
+    return Math.max(240, Math.min(720, Math.round(w / 24) * 24));  // multiple of 24: the map is built from 24 px tiles
   })();
   MIDP.setScreen(SCREEN_W, 320);
   $('screen').width = SCREEN_W;
@@ -508,7 +510,7 @@ const PREFIX = 'gangstar:';
   }
   seg('segCtl', 'ctl', layout);
   seg('segLang', 'lang', () => { sessionStorage.setItem(PREFIX + 'msg', settings.lang === 'es' ? 'Idioma: español' : 'Language: English'); location.reload(); });
-  seg('segScreen', 'screen', () => { sessionStorage.setItem(PREFIX + 'msg', 'Pantalla: ' + settings.screen + ' × 320'); location.reload(); });
+  seg('segScreen', 'screen', () => { sessionStorage.setItem(PREFIX + 'msg', 'Pantalla: ' + (settings.screen === 'auto' ? 'automática' : settings.screen + ' × 320')); location.reload(); });
   seg('segSpeed', 'speed', () => Gangstar.setSpeed(+settings.speed));
   $('optSmooth').checked = settings.smooth;
   $('optSmooth').onchange = (e) => { settings.smooth = e.target.checked; store.set('smooth', settings.smooth); Gangstar.opts.smooth = settings.smooth; };

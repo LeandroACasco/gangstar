@@ -214,6 +214,15 @@ const Wide = (() => {
     }
     function blit(img, ctx) {
       const src = img.canvas;
+      const T = VM.classes.get('d').sv.T;
+      if (T === 6) {                                 // level loading ("Noticias"): drawn in the left 240 px
+        const dx = (W - 240) >> 1, split = 298;      // text ends at row 296; the progress bar (rows 300+) runs the whole width
+        ctx.drawImage(src, 0, 0, 240, split, dx, 0, 240, split);
+        ctx.drawImage(src, 0, 0, 1, split, 0, 0, dx, split);                        // sky and city carry on
+        ctx.drawImage(src, 239, 0, 1, split, dx + 240, 0, W - dx - 240, split);     // to the edges
+        ctx.drawImage(src, 0, split, W, 320 - split, 0, split, W, 320 - split);
+        return;
+      }
       if (Narrow.on) {                               // a menu drawn in the middle: black bands on the sides
         const dx = Narrow.dx;
         ctx.fillStyle = '#000'; ctx.fillRect(0, 0, dx, 320); ctx.fillRect(dx + 240, 0, W - dx - 240, 320);
