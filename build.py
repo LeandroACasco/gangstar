@@ -4,7 +4,7 @@
   python3 build.py app      -> docs/               (installable web app WITHOUT game files, for GitHub Pages)
                                dist/gangstar-datos.zip (private data package: jar + translations; never commit it)
 """
-import base64, io, json, pathlib, sys, zipfile, hashlib
+import base64, io, json, pathlib, sys, zipfile, hashlib, datetime
 
 root = pathlib.Path(__file__).parent
 SCRIPTS = [('INFLATE', 'inflate.js'), ('JVM', 'jvm.js'), ('MIDP', 'midp.js'), ('AUDIO', 'audio.js'),
@@ -24,6 +24,10 @@ def assemble(jar_b64, langs, favicon_b64, head_extra='', art=None):
         html = html.replace('/*%s*/' % tag, (root / 'src' / f).read_text())
     html = html.replace('/*JAR*/', jar_b64).replace('/*ICON*/', favicon_b64).replace('/*LANGS*/', json.dumps(langs))
     html = html.replace('/*ARTPACK*/', json.dumps(art or {}))
+    # version shown in the app: build time (Paraguay, UTC-3) and a hash of the code
+    when = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-3)))
+    code = hashlib.sha1(html.split('const JAR_B64')[0].encode()).hexdigest()[:7]
+    html = html.replace('/*BUILD*/', json.dumps(when.strftime('%d/%m/%Y %H:%M') + ' · ' + code))
     if head_extra:
         html = html.replace('</head>', head_extra + '\n</head>', 1)
     return html

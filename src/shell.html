@@ -40,6 +40,8 @@
   #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 12px; background: rgba(0,0,0,.82); text-align: center; padding: 20px; cursor: pointer; }
   #overlay.hidden { display: none; }
+  .ver { color: var(--muted); font-size: 11px; text-align: center; margin: 10px 0 0; }
+  #overlay .ver { position: absolute; right: 8px; bottom: 6px; margin: 0; opacity: .75; }
   #overlay.art { justify-content: flex-end; padding-bottom: 12%; }
   #overlay.art b { font-size: 20px; text-shadow: 0 2px 8px #000; } #overlay.art span { color: #ddd; text-shadow: 0 1px 4px #000; }
   #overlay b { font-size: 18px; } #overlay span { color: var(--muted); font-size: 13px; }
@@ -199,7 +201,7 @@
         <button id="satBtn" hidden>🛰 Satelital</button>
         <div id="resume" hidden><img alt=""><div class="t"><b>¿Seguir donde estabas?</b><span></span></div>
           <div class="b"><button class="go">Seguir</button><button class="no">Ahora no</button></div></div>
-        <div id="overlay"><b>Tocá o hacé clic para empezar</b><span>(el navegador necesita un toque para activar el sonido)</span></div>
+        <div id="overlay"><b>Tocá o hacé clic para empezar</b><span>(el navegador necesita un toque para activar el sonido)</span><small class="ver" id="verStart"></small></div>
       </div>
       <div class="below" id="below"></div>
     </div>
@@ -313,6 +315,7 @@
     </table>
     <div id="dataRow" hidden><h3>Datos del juego</h3><div class="row"><button class="btn" id="dataChange">📦 Cambiar archivo de datos</button></div></div>
     <div class="row" style="margin-top:8px"><button class="btn primary" id="menuClose">Volver al juego</button></div>
+    <p class="ver" id="verMenu"></p>
   </div>
 </dialog>
 <input type="file" id="fileIn" accept=".json,application/json,text/plain" hidden>
@@ -370,9 +373,11 @@
 const JAR_B64 = "/*JAR*/";
 const LANG_PACKS = /*LANGS*/;
 const ART_PACK = /*ARTPACK*/;
+const BUILD = /*BUILD*/;
 const PREFIX = 'gangstar:';
 (function () {
   const $ = (id) => document.getElementById(id);
+  $('verMenu').textContent = 'Versión ' + BUILD; $('verStart').textContent = 'v ' + BUILD;
   const toast = (msg) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600); };
   const store = { get(k, d) { try { const v = localStorage.getItem(PREFIX + 'ui:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
                   set(k, v) { try { localStorage.setItem(PREFIX + 'ui:' + k, JSON.stringify(v)); } catch (e) {} } };

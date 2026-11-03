@@ -1,5 +1,5 @@
 // Offline support: cache the app shell. Game data lives in IndexedDB on the device, never here.
-const CACHE = 'gangstar-2e63b8fb81';
+const CACHE = 'gangstar-749a5fbe07';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/favicon.png'];
 
 self.addEventListener('install', (e) => {

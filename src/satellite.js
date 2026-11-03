@@ -13,7 +13,7 @@
 
 const Satellite = (() => {
   const S = 6;                              // world image: px per tile
-  const MAP_KEY = 0x010203;                 // colour that c(Graphics) paints instead of the flat map
+  const MAP_KEY = 0x13e2c4;                 // colour that c(Graphics) paints instead of the flat map (no marker uses it)
   const RADAR_BG = 0x0b0909;                // radar inner circle (d.aR)
   const RADAR = { x: 20, y: 281, d: 38 };   // inner circle, 240-px HUD layout (also on wide screens)
   const opts = { map: true, radar: true };
@@ -103,7 +103,11 @@ const Satellite = (() => {
     tctx.drawImage(screen, x, y, w, h, 0, 0, w, h);
     const id = tctx.getImageData(0, 0, w, h), d = id.data;
     const r = keyColor >> 16, gg = (keyColor >> 8) & 255, b = keyColor & 255;
-    for (let i = 0; i < d.length; i += 4) if (d[i] === r && d[i + 1] === gg && d[i + 2] === b) d[i + 3] = 0;
+    // near the key, not exactly it: some browsers (Brave's fingerprinting protection) add slight noise to
+    // pixels read back from a canvas, and the pixels that missed showed as dark dots over the picture
+    const T = 10;
+    for (let i = 0; i < d.length; i += 4)
+      if (Math.abs(d[i] - r) <= T && Math.abs(d[i + 1] - gg) <= T && Math.abs(d[i + 2] - b) <= T) d[i + 3] = 0;
     tctx.putImageData(id, 0, 0);
     lctx.imageSmoothingEnabled = false;
     lctx.drawImage(tmp, 0, 0, w, h, x * kx, y * ky, w * kx, h * ky);
