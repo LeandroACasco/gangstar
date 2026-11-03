@@ -2525,7 +2525,7 @@ const Wide = (() => {
   // to their original values and drawing is shifted to the middle of the screen.
   const Narrow = (() => {
     // d.T -> the method that runs (logic and drawing) for that screen; loading (6) and gameplay (7) stay wide
-    const STATES = { 1: 'ad()V', 3: 'af()V', 4: 'ag()V', 5: 'ak()V', 8: 'aU()V', 9: 'ah()V' };
+    const STATES = { 1: 'ad()V', 3: 'af()V', 4: 'ag()V', 5: 'ak()V', 8: 'aU()V', 9: 'ah()V', 10: 'aj()V' };  // 10: map
     // the pause screen (9) draws the city behind the menu with these: they always run wide
     const WIDE = ['at()V', 'C(II)V', 'Z()V', 'Y()V'];
     let W = 240, dx = 0, on = false, depth = 0, wideK = null;
@@ -2612,7 +2612,7 @@ const Wide = (() => {
     return { init, get state() { return { top, bottom }; } };
   })();
 
-  return { apply, walk, constAt, patchClass, stats, Hud };
+  return { apply, walk, constAt, patchClass, stats, Hud, get dx() { return Narrow.on ? Narrow.dx : 0; } };
 })();
 
 </script>
@@ -3237,6 +3237,7 @@ const Satellite = (() => {
   }
   function mapRect() {
     const sv = D.sv;
+    // in game coordinates; on a wide screen the map screen is drawn centred (Wide.dx)
     return { x: sv.ad, y: sv.ae, w: sv.fz * ((sv.fR * sv.ft) >> 8), h: sv.fA * ((sv.fS * sv.fu) >> 8) };
   }
 
@@ -3280,9 +3281,9 @@ const Satellite = (() => {
     lctx.clearRect(0, 0, layer.width, layer.height);
     lctx.imageSmoothingEnabled = true; lctx.imageSmoothingQuality = 'high';
     if (map) {
-      const r = mapRect();
-      lctx.drawImage(world, r.x * kx, r.y * ky, r.w * kx, r.h * ky);
-      keyed(r.x, r.y, r.w, r.h, MAP_KEY, kx, ky);
+      const r = mapRect(), x = r.x + Wide.dx;
+      lctx.drawImage(world, x * kx, r.y * ky, r.w * kx, r.h * ky);
+      keyed(x, r.y, r.w, r.h, MAP_KEY, kx, ky);
     } else {
       // radar: 17 px from the centre = d.fw (horizontal) / d.fx (vertical) world px, centred on the player
       const sv = D.sv, pl = sv.cd;

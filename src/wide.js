@@ -157,7 +157,7 @@ const Wide = (() => {
   // to their original values and drawing is shifted to the middle of the screen.
   const Narrow = (() => {
     // d.T -> the method that runs (logic and drawing) for that screen; loading (6) and gameplay (7) stay wide
-    const STATES = { 1: 'ad()V', 3: 'af()V', 4: 'ag()V', 5: 'ak()V', 8: 'aU()V', 9: 'ah()V' };
+    const STATES = { 1: 'ad()V', 3: 'af()V', 4: 'ag()V', 5: 'ak()V', 8: 'aU()V', 9: 'ah()V', 10: 'aj()V' };  // 10: map
     // the pause screen (9) draws the city behind the menu with these: they always run wide
     const WIDE = ['at()V', 'C(II)V', 'Z()V', 'Y()V'];
     let W = 240, dx = 0, on = false, depth = 0, wideK = null;
@@ -244,5 +244,5 @@ const Wide = (() => {
     return { init, get state() { return { top, bottom }; } };
   })();
 
-  return { apply, walk, constAt, patchClass, stats, Hud };
+  return { apply, walk, constAt, patchClass, stats, Hud, get dx() { return Narrow.on ? Narrow.dx : 0; } };
 })();

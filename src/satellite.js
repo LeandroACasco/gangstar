@@ -78,6 +78,7 @@ const Satellite = (() => {
   }
   function mapRect() {
     const sv = D.sv;
+    // in game coordinates; on a wide screen the map screen is drawn centred (Wide.dx)
     return { x: sv.ad, y: sv.ae, w: sv.fz * ((sv.fR * sv.ft) >> 8), h: sv.fA * ((sv.fS * sv.fu) >> 8) };
   }
 
@@ -121,9 +122,9 @@ const Satellite = (() => {
     lctx.clearRect(0, 0, layer.width, layer.height);
     lctx.imageSmoothingEnabled = true; lctx.imageSmoothingQuality = 'high';
     if (map) {
-      const r = mapRect();
-      lctx.drawImage(world, r.x * kx, r.y * ky, r.w * kx, r.h * ky);
-      keyed(r.x, r.y, r.w, r.h, MAP_KEY, kx, ky);
+      const r = mapRect(), x = r.x + Wide.dx;
+      lctx.drawImage(world, x * kx, r.y * ky, r.w * kx, r.h * ky);
+      keyed(x, r.y, r.w, r.h, MAP_KEY, kx, ky);
     } else {
       // radar: 17 px from the centre = d.fw (horizontal) / d.fx (vertical) world px, centred on the player
       const sv = D.sv, pl = sv.cd;
