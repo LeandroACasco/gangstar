@@ -181,6 +181,77 @@
   #setup .card { max-width: 420px; display: flex; flex-direction: column; gap: 14px; text-align: center; }
   #setup .btn { flex: none; text-align: center; padding: 14px; font-size: 16px; }
   #setup h2 { margin: 0; font-size: 20px; } #setup p { margin: 0; color: var(--muted); }
+
+  /* ================= look of the site: dark plum, magenta-to-orange sunset, gold ================= */
+  :root { --bg: #0d050c; --panel: #150811; --key: #2a1422; --key-hi: #3d1d31; --text: #f4e9ee; --muted: #a58a9a;
+    --accent: #f3c15a; --accent2: #ff7e5f; --line: #4a2140; --hot: #d63a85; --sunset: linear-gradient(90deg, #d63a85, #ff8a5a); }
+  #toast { background: #2a1224; border-color: #6b2a5c; }
+  .icon-btn { border-color: #5a2a50; } .icon-btn:hover { background: #2a1224; }
+  dialog { border-radius: 6px; border-color: #6b2a5c; box-shadow: 0 0 0 1px #000, 0 24px 70px rgba(0,0,0,.85), 0 0 46px rgba(214,58,133,.22); }
+  dialog::backdrop { background: rgba(8,2,8,.72); }
+  .btn { background: #2a1422; border-color: #5a2a50; border-radius: 6px; }
+  .btn:hover { background: #3d1d31; }
+  .btn.primary, #setup .btn.primary { background: linear-gradient(90deg, #f3c15a, #ff9a5a); border-color: #ffd98a; color: #1b0a14; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .seg { border-color: #5a2a50; border-radius: 6px; }
+  .seg button { background: #22101c; }
+  .seg button + button { border-left-color: #5a2a50; }
+  .seg button.on { background: linear-gradient(180deg, #ffd479, #f0a63e); color: #1b0a14; font-weight: 700; }
+  textarea { background: #0a0309; border-color: #4a2140; }
+  kbd { background: #2a1422; border: 1px solid #4a2140; border-bottom-width: 2px; }
+  td { border-bottom-color: #3a1a31; }
+  #resume { background: rgba(20,7,17,.95); border-color: #6b2a5c; border-radius: 8px; }
+  #resume button { background: #3d1d31; border-radius: 6px; } #resume button.go { background: linear-gradient(90deg, #f3c15a, #ff9a5a); color: #1b0a14; }
+  .slot { background: #22101c; border-color: #4a2140; border-radius: 8px; }
+  .slot button { background: #3d1d31; } .slot button.save { background: linear-gradient(90deg, #f3c15a, #ff9a5a); color: #1b0a14; }
+  #setup { background: radial-gradient(120% 80% at 50% 110%, #5b1346 0%, #2a0a26 45%, #0d050c 80%); }
+  #setup h2 { font-size: 22px; letter-spacing: .08em; text-transform: uppercase; background: var(--sunset); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #overlay { background: radial-gradient(120% 70% at 50% 100%, rgba(120,24,90,.55), rgba(10,3,10,.88)); }
+  #overlay.art { background-blend-mode: normal; }
+
+  /* switches */
+  label.chk { align-items: flex-start; gap: 11px; line-height: 1.35; font-size: 13.5px; }
+  label.chk input[type=checkbox] { -webkit-appearance: none; appearance: none; flex: none; width: 38px; height: 21px; border-radius: 999px; margin: 1px 0 0;
+    background: #22101c; border: 1px solid #6b2a5c; position: relative; cursor: pointer; transition: background .15s, border-color .15s; }
+  label.chk input[type=checkbox]::after { content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: #9b7490; transition: left .15s, background .15s; }
+  label.chk input[type=checkbox]:checked { background: var(--sunset); border-color: #ffb48a; }
+  label.chk input[type=checkbox]:checked::after { left: 19px; background: #fff3d6; }
+  label.rng input { accent-color: #ff8a5a; }
+
+  /* the menu */
+  dialog#menu { width: min(540px, 96vw); height: min(86vh, 760px); overflow: hidden; background: #12060f; }
+  .mdlg { padding: 0; gap: 0; height: 100%; max-height: none; overflow: hidden; touch-action: auto; }
+  .mhead { position: relative; flex: none; height: 118px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px;
+    background: linear-gradient(180deg, rgba(18,6,15,0) 35%, #12060f 100%), linear-gradient(100deg, #3a0a35 0%, #8e1a6b 38%, #e0507a 68%, #ff9a5a 100%); }
+  body.has-banner .mhead { background: linear-gradient(180deg, rgba(18,6,15,.05) 30%, #12060f 100%), var(--art-banner, none) center 30% / cover no-repeat, var(--art-haze, none) center / cover no-repeat, #3a0a35; }
+  .mlogo { height: 104px; max-width: 70%; object-fit: contain; filter: drop-shadow(0 3px 8px rgba(0,0,0,.7)); }
+  .mlogo[hidden] { display: none; }
+  .mtitle { display: flex; flex-direction: column; align-items: center; line-height: 1; font: 800 34px/1 "Arial Narrow", "Trebuchet MS", system-ui, sans-serif; letter-spacing: .02em;
+    color: #8fd9ee; text-shadow: 0 2px 0 #1b4a5c, 0 0 18px rgba(143,217,238,.35); }
+  .mtitle small { font: 700 13px/1 system-ui, sans-serif; letter-spacing: .42em; color: #f3c15a; text-shadow: 0 1px 0 #000; margin-top: 6px; text-transform: uppercase; }
+  body.has-logo .mtitle { display: none; }
+  .mx { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); background: rgba(10,3,10,.55); color: #fff; font-size: 14px; cursor: pointer; }
+  .mtabs { flex: none; display: flex; background: #0d050c; border-top: 1px solid #5a2a50; border-bottom: 1px solid #3a1a31; }
+  .mtabs button { flex: 1; background: transparent; border: none; color: var(--muted); padding: 12px 2px 10px; font: 700 12px system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; position: relative; }
+  .mtabs button.on { color: #ffe2a3; background: linear-gradient(180deg, rgba(214,58,133,0), rgba(214,58,133,.22)); }
+  .mtabs button.on::after { content: ''; position: absolute; left: 12%; right: 12%; bottom: 0; height: 3px; border-radius: 2px 2px 0 0; background: var(--sunset); }
+  .mbody { flex: 1; min-height: 0; overflow: auto; padding: 6px 18px 14px; display: flex; flex-direction: column; gap: 10px; touch-action: pan-y; overscroll-behavior: contain; }
+  .mpane { display: flex; flex-direction: column; gap: 10px; }
+  .mpane[hidden] { display: none; }
+  .mpane > * { flex-shrink: 0; }
+  .mpane h3 { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; font-size: 12px; letter-spacing: .14em; color: #ffcf8a; }
+  .mpane h3::before { content: ''; width: 9px; height: 9px; transform: rotate(45deg); background: var(--sunset); flex: none; margin: 0 2px; }
+  body.has-gun .mpane h3::before { width: 28px; height: 20px; transform: none; background: var(--art-gun) center / contain no-repeat; margin: 0; }
+  .mpane h3::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, #6b2a5c, transparent); }
+  .mpane p { font-size: 12.5px; }
+  .mfoot { flex: none; padding: 10px 18px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, #12060f, #0b0309); border-top: 1px solid #3a1a31; }
+  .mfoot .btn { width: 100%; text-align: center; flex: none; padding: 12px; }
+  body.has-flags #segLang button { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  body.has-flags #segLang button::before { content: ''; width: 24px; height: 16px; image-rendering: pixelated; background-size: 100% 100%; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+  body.has-flags #segLang [data-v=es]::before { background-image: var(--art-flag-es); }
+  body.has-flags #segLang [data-v=en]::before { background-image: var(--art-flag-en); }
+  .mpane .seg { flex-wrap: wrap; } .mpane .seg button { flex: 1 1 auto; white-space: nowrap; padding: 9px 10px; }
+  @media (max-width: 520px) { .mpane table td { display: block; padding: 2px 0; border: 0; } .mpane table tr { display: block; padding: 6px 0; border-bottom: 1px solid #3a1a31; } .mpane table td:first-child { white-space: normal; } }
+  #states .dlg h2 { letter-spacing: .06em; text-transform: uppercase; color: #ffe2a3; }
 </style>
 </head>
 <body>
@@ -246,50 +317,21 @@
 <div id="fps" hidden></div>
 
 <dialog id="menu">
-  <div class="dlg">
-    <h2>Menú</h2>
-    <h3>Controles táctiles</h3>
+  <div class="dlg mdlg">
+    <div class="mhead"><img class="mlogo" alt="" hidden><span class="mtitle">Gangstar<small>Crime City</small></span><button class="mx" id="menuX" aria-label="Cerrar">✕</button></div>
+    <nav class="mtabs" id="mtabs">
+      <button data-t="ctl" class="on">Controles</button><button data-t="scr">Pantalla</button><button data-t="game">Juego</button><button data-t="save">Partida</button>
+    </nav>
+    <div class="mbody" id="mbody">
+    <section class="mpane" data-pane="ctl">
+      <h3>Controles táctiles</h3>
     <div class="seg" id="segCtl"><button data-v="game">Botones del juego</button><button data-v="phone">Celular clásico</button><button data-v="none">Ocultos</button></div>
     <label class="chk"><input type="checkbox" id="optOverlay"> Acostado con pantalla ancha: la imagen ocupa toda la pantalla y los botones van encima</label>
     <label class="rng">Tamaño botones <input type="range" id="optPadSize" min="70" max="150" step="5"><output id="outPadSize"></output></label>
     <label class="rng">Transparencia <input type="range" id="optPadA" min="20" max="100" step="5"><output id="outPadA"></output></label>
     <div class="row"><button class="btn" id="padEdit">🎮 Acomodar los botones</button></div>
-    <h3>Idioma del juego</h3>
-    <div class="seg" id="segLang"><button data-v="es">Español</button><button data-v="en">English</button></div>
-    <p>Cambiar el idioma reinicia el juego (la partida guardada se mantiene).</p>
-    <h3>Pantalla</h3>
-    <div class="seg" id="segScreen"><button data-v="240">Original</button><button data-v="384">Ancha</button><button data-v="432">Panorámica</button><button data-v="576">Cine 16:9</button><button data-v="auto">Automática</button></div>
-    <p>Automática usa el ancho que llena la pantalla de este dispositivo acostado (por ejemplo 696 en un celular 19,5:9). Las pantallas más anchas muestran más ciudad a los costados. Cambiarla reinicia el juego; los guardados rápidos (ranuras) solo cargan en la pantalla en que se hicieron, la partida normal sí se mantiene.</p>
-    <h3>Velocidad del juego</h3>
-    <div class="seg" id="segSpeed"><button data-v="1">Normal</button><button data-v="1.25">Rápida ×1,25</button><button data-v="1.5">Muy rápida ×1,5</button></div>
-    <label class="chk"><input type="checkbox" id="optCurve"> Manejo asistido: seguir acelerando en las curvas (el juego original corta el acelerador mientras el auto gira y frena en cada esquina)</label>
-    <h3>Imagen</h3>
-    <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave (cuadros intermedios a la frecuencia de tu pantalla)</label>
-    <label class="chk"><input type="checkbox" id="optQuick"> Respuesta rápida (el juego reacciona apenas tocás y la imagen va medio cuadro adelante; menos retraso al moverte)</label>
-    <label class="chk"><input type="checkbox" id="optTurn"> Giro suave de los autos (entre los 16 dibujos del auto, lo va girando de a poco)</label>
-    <label class="chk"><input type="checkbox" id="optVib"> Vibración</label>
-    <label class="chk"><input type="checkbox" id="optSatMap"> Mapa satelital (el mapa de la pausa dibujado con la ciudad real; también se cambia con el botón 🛰 en el mapa)</label>
-    <label class="chk"><input type="checkbox" id="optSatRadar"> Radar satelital (las calles alrededor tuyo dentro del radar)</label>
-    <label class="chk"><input type="checkbox" id="optFps"> Mostrar FPS (cuadros por segundo de la imagen · ticks por segundo del juego, 10 es lo normal)</label>
-    <h3>Trucos</h3>
-    <div class="cheatrow">
-      <label class="chk"><input type="checkbox" id="chHealth"> Salud infinita</label>
-      <label class="chk"><input type="checkbox" id="chAmmo"> Munición infinita</label>
-      <label class="chk"><input type="checkbox" id="chPolice"> Sin policía</label>
-      <button class="btn" id="chMoney" style="flex:none;text-align:center">💵 +$10.000</button>
-    </div>
-    <h3>Partida</h3>
-    <label class="chk"><input type="checkbox" id="optAuto"> Guardado automático (cada 2 minutos de juego y al salir de la app; al volver a abrir te ofrece seguir ahí)</label>
-    <p>La partida se guarda en el navegador de este dispositivo. Para seguir en otro (PC ↔ teléfono), exportala acá y cargala allá.</p>
-    <div class="row">
-      <button class="btn" id="expFile">💾 Guardar partida en archivo</button>
-      <button class="btn" id="impFile">📂 Cargar partida desde archivo</button>
-      <button class="btn" id="expText">📋 Copiar partida como texto</button>
-      <button class="btn" id="impText">📥 Pegar partida desde texto</button>
-    </div>
-    <textarea id="saveText" hidden placeholder="Pegá acá el texto de la partida"></textarea>
-    <div class="row" id="saveTextRow" hidden><button class="btn primary" id="saveTextOk">Cargar esta partida</button></div>
-    <h3>Teclado (PC)</h3>
+      <label class="chk"><input type="checkbox" id="optVib"> Vibración</label>
+      <h3>Teclado (PC)</h3>
     <table>
       <tr><td><kbd>W A S D</kbd> / <kbd>↑ ↓ ← →</kbd></td><td>Moverse (dos teclas juntas = diagonal; en el auto, acelerar y doblar a la vez)</td></tr>
       <tr><td><kbd>Espacio</kbd> / <kbd>J</kbd></td><td>Disparar · OK (tecla 5)</td></tr>
@@ -302,7 +344,7 @@
       <tr><td><kbd>M</kbd></td><td>Silenciar</td></tr>
       <tr><td><kbd>F5</kbd> · <kbd>F9</kbd></td><td>Guardado rápido · carga rápida</td></tr>
     </table>
-    <h3>Control de consola</h3>
+      <h3>Control de consola</h3>
     <p id="padInfo">Conectá un control (USB o Bluetooth) y apretá cualquier botón.</p>
     <table>
       <tr><td>Stick izq. / cruceta</td><td>Moverse (8 direcciones)</td></tr>
@@ -314,14 +356,57 @@
       <tr><td><kbd>Start</kbd></td><td>Pausa</td></tr>
       <tr><td><kbd>Select</kbd></td><td>Este menú · con RB/LB guarda/carga</td></tr>
     </table>
-    <div id="dataRow" hidden><h3>Datos del juego</h3><div class="row"><button class="btn" id="dataChange">📦 Cambiar archivo de datos</button></div></div>
-    <div class="row" style="margin-top:8px"><button class="btn primary" id="menuClose">Volver al juego</button></div>
-    <p class="ver" id="verMenu"></p>
+    </section>
+    <section class="mpane" data-pane="scr" hidden>
+      <h3>Pantalla</h3>
+    <div class="seg" id="segScreen"><button data-v="240">Original</button><button data-v="384">Ancha</button><button data-v="432">Panorámica</button><button data-v="576">Cine 16:9</button><button data-v="auto">Automática</button></div>
+      <p>Automática usa el ancho que llena la pantalla acostado. Las pantallas más anchas muestran más ciudad a los costados. Cambiarla reinicia el juego; los guardados rápidos solo cargan en la pantalla en que se hicieron.</p>
+      <h3>Imagen</h3>
+    <label class="chk"><input type="checkbox" id="optSmooth"> Movimiento suave (cuadros intermedios a la frecuencia de tu pantalla)</label>
+    <label class="chk"><input type="checkbox" id="optQuick"> Respuesta rápida (el juego reacciona apenas tocás y la imagen va medio cuadro adelante; menos retraso al moverte)</label>
+    <label class="chk"><input type="checkbox" id="optTurn"> Giro suave de los autos (entre los 16 dibujos del auto, lo va girando de a poco)</label>
+    <label class="chk"><input type="checkbox" id="optSatMap"> Mapa satelital (el mapa de la pausa dibujado con la ciudad real; también se cambia con el botón 🛰 en el mapa)</label>
+    <label class="chk"><input type="checkbox" id="optSatRadar"> Radar satelital (las calles alrededor tuyo dentro del radar)</label>
+    <label class="chk"><input type="checkbox" id="optFps"> Mostrar FPS (cuadros por segundo de la imagen · ticks por segundo del juego, 10 es lo normal)</label>
+    </section>
+    <section class="mpane" data-pane="game" hidden>
+      <h3>Idioma del juego</h3>
+    <div class="seg" id="segLang"><button data-v="es">Español</button><button data-v="en">English</button></div>
+      <p>Cambiar el idioma reinicia el juego (la partida guardada se mantiene).</p>
+      <h3>Velocidad del juego</h3>
+    <div class="seg" id="segSpeed"><button data-v="1">Normal</button><button data-v="1.25">Rápida ×1,25</button><button data-v="1.5">Muy rápida ×1,5</button></div>
+    <label class="chk"><input type="checkbox" id="optCurve"> Manejo asistido: seguir acelerando en las curvas (el juego original corta el acelerador mientras el auto gira y frena en cada esquina)</label>
+      <h3>Trucos</h3>
+    <div class="cheatrow">
+      <label class="chk"><input type="checkbox" id="chHealth"> Salud infinita</label>
+      <label class="chk"><input type="checkbox" id="chAmmo"> Munición infinita</label>
+      <label class="chk"><input type="checkbox" id="chPolice"> Sin policía</label>
+      <button class="btn" id="chMoney" style="flex:none;text-align:center">💵 +$10.000</button>
+    </div>
+    </section>
+    <section class="mpane" data-pane="save" hidden>
+      <h3>Partida</h3>
+    <label class="chk"><input type="checkbox" id="optAuto"> Guardado automático (cada 2 minutos de juego y al salir de la app; al volver a abrir te ofrece seguir ahí)</label>
+    <p>La partida se guarda en el navegador de este dispositivo. Para seguir en otro (PC ↔ teléfono), exportala acá y cargala allá.</p>
+    <div class="row">
+      <button class="btn" id="expFile">💾 Guardar partida en archivo</button>
+      <button class="btn" id="impFile">📂 Cargar partida desde archivo</button>
+      <button class="btn" id="expText">📋 Copiar partida como texto</button>
+      <button class="btn" id="impText">📥 Pegar partida desde texto</button>
+    </div>
+    <textarea id="saveText" hidden placeholder="Pegá acá el texto de la partida"></textarea>
+    <div class="row" id="saveTextRow" hidden><button class="btn primary" id="saveTextOk">Cargar esta partida</button></div>
+      <div id="dataRow" hidden><h3>Datos del juego</h3><div class="row"><button class="btn" id="dataChange">📦 Cambiar archivo de datos</button><button class="btn" id="artChange">🎨 Cargar arte del menú (.zip)</button></div></div>
+      <p class="ver" id="verMenu"></p>
+    </section>
+    </div>
+    <div class="mfoot"><button class="btn primary" id="menuClose">Volver al juego</button></div>
   </div>
 </dialog>
 <input type="file" id="fileIn" accept=".json,application/json,text/plain" hidden>
 <input type="file" id="stateIn" accept=".gss,application/gzip,application/octet-stream" hidden>
 <input type="file" id="dataIn" accept=".zip,.jar,application/zip,application/java-archive" hidden>
+<input type="file" id="artIn" accept=".zip,application/zip" hidden>
 <dialog id="states">
   <div class="dlg">
     <h2>Guardar en cualquier momento</h2>
@@ -714,6 +799,20 @@ const PREFIX = 'gangstar:';
   const openMenu = () => { if (menu.open) return; releaseAll(); VM.freeze(); menu.showModal(); };
   $('btnMenu').onclick = openMenu;
   $('menuClose').onclick = () => menu.close();
+  $('menuX').onclick = () => menu.close();
+  // menu tabs (the last one used is remembered for the session)
+  (function () {
+    const tabs = $('mtabs'), panes = document.querySelectorAll('.mpane');
+    const show = (t) => {
+      tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+      panes.forEach((q) => { q.hidden = q.dataset.pane !== t; });
+      $('mbody').scrollTop = 0;
+      try { sessionStorage.setItem(PREFIX + 'tab', t); } catch (e) {}
+    };
+    tabs.querySelectorAll('button').forEach((b) => { b.onclick = () => show(b.dataset.t); });
+    let t0 = 'ctl'; try { t0 = sessionStorage.getItem(PREFIX + 'tab') || 'ctl'; } catch (e) {}
+    if (tabs.querySelector(`[data-t="${t0}"]`)) show(t0);
+  })();
   menu.addEventListener('close', () => { $('saveText').hidden = true; $('saveTextRow').hidden = true; if (!$('states').open) VM.unfreeze(); });
 
   // ---------- saves ----------
@@ -916,8 +1015,8 @@ const PREFIX = 'gangstar:';
 
   // game data: embedded (single-file build) or a data package stored on this device (installable app build)
   const dataDB = () => new Promise((res, rej) => { const r = indexedDB.open('gangstar-data', 1); r.onupgradeneeded = () => r.result.createObjectStore('files'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
-  const dataGet = async () => { const d = await dataDB(); return new Promise((res) => { const q = d.transaction('files').objectStore('files').get('pkg'); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); };
-  const dataPut = async (u8) => { const d = await dataDB(); return new Promise((res, rej) => { const tx = d.transaction('files', 'readwrite'); tx.objectStore('files').put(u8, 'pkg'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); };
+  const dataGet = async (key = 'pkg') => { const d = await dataDB(); return new Promise((res) => { const q = d.transaction('files').objectStore('files').get(key); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); };
+  const dataPut = async (u8, key = 'pkg') => { const d = await dataDB(); return new Promise((res, rej) => { const tx = d.transaction('files', 'readwrite'); tx.objectStore('files').put(u8, key); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); };
   function filesFromPackage(u8) {
     const outer = unzip(u8);
     if (outer['META-INF/MANIFEST.MF']) return { files: outer, langs: {}, art: {} };     // a plain .jar
@@ -929,6 +1028,7 @@ const PREFIX = 'gangstar:';
   // promotional art from the data package: cover on the start screen, city and characters beside menus
   function presentation(art) {
     if (!Art.init(art || {})) return;
+    Art.theme();
     Art.startScreen($('overlay'));
     if (MIDP.SW <= 240) return;
     const sw = $('screenWrap');
@@ -943,6 +1043,20 @@ const PREFIX = 'gangstar:';
     presentation(art);
     if (langs[settings.lang]) files['o'] = langs[settings.lang];
     MIDP.boot(files, $('screen'), { storagePrefix: PREFIX, beforeStart: () => { Wide.apply(SCREEN_W); Gangstar.beforeStart(); Satellite.beforeStart(); TouchMenu.beforeStart(); Gangstar.setCurveThrottle(settings.curve); Gangstar.setSpeed(+settings.speed); } });
+  }
+  // optional menu art: a small .zip with art/*.webp, stored on this device next to the data package
+  function artFromZip(u8) { const o = unzip(u8), a = {}; for (const k in o) if (/^art\/\w+\.webp$/.test(k)) a[k] = o[k]; return a; }
+  function pickArt() {
+    const inp = $('artIn');
+    inp.onchange = async (e) => {
+      const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+      try {
+        const u8 = new Uint8Array(await f.arrayBuffer());
+        if (!Object.keys(artFromZip(u8)).length) throw new Error('Ese archivo no tiene arte del menú');
+        await dataPut(u8, 'art'); location.reload();
+      } catch (err) { toast('⚠ ' + (err.message || 'Archivo inválido')); }
+    };
+    inp.click();
   }
   function pickData() {
     return new Promise((resolve) => {
@@ -968,9 +1082,11 @@ const PREFIX = 'gangstar:';
     } else {
       $('dataRow').hidden = false;
       $('dataChange').onclick = async () => { menu.close(); const pkg = await pickData(); location.reload(); };
+      $('artChange').onclick = () => { menu.close(); pickArt(); };
       let pkg = null;
       try { const u8 = await dataGet(); if (u8) pkg = filesFromPackage(u8); } catch (e) {}
       if (!pkg) pkg = await pickData();
+      try { const x = await dataGet('art'); if (x) Object.assign(pkg.art, artFromZip(x)); } catch (e) {}
       start(pkg.files, pkg.langs, pkg.art);
     }
   })();
