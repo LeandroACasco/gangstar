@@ -74,5 +74,18 @@ const Art = (() => {
     return await new Promise((res) => c.toBlob((b) => res(b ? URL.createObjectURL(b) : null), 'image/webp', 0.9));
   }
 
-  return { init, has, startScreen, backdrop };
+  // the menus' look: the pieces of art go in as CSS variables (and body.has-art), so the stylesheet can use them
+  // when they are there and keep a plain gradient version when they are not
+  function theme() {
+    const root = document.documentElement.style, b = document.body.classList;
+    for (const n of ['logo', 'banner', 'haze', 'gun', 'flare', 'car', 'flag_es', 'flag_en']) {
+      if (urls[n]) root.setProperty('--art-' + n.replace('_', '-'), `url(${urls[n]})`);
+    }
+    if (urls.logo) { b.add('has-logo'); document.querySelectorAll('.mlogo').forEach((i) => { i.src = urls.logo; i.hidden = false; }); }
+    if (urls.banner || urls.haze) b.add('has-banner');
+    if (urls.gun) b.add('has-gun');
+    if (urls.flag_es && urls.flag_en) b.add('has-flags');
+  }
+
+  return { init, has, startScreen, backdrop, theme };
 })();
